@@ -11,8 +11,6 @@ def get_pairwise_euclidean_distance_matrix(tensor):
     Returns:
         pairwise distance: (batch_size, num_points, num_points)
     """
-    t = 1
-
     flat = tensor.flatten(start_dim = 1)
     adj_matrix = torch.cdist(flat,flat)
     # adj_matrix = torch.exp(-adj_matrix)/(4*t)

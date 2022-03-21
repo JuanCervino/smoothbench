@@ -40,6 +40,29 @@ def accuracy(algorithm, loader, device):
 
     return 100. * correct / total
 
+
+@torch.no_grad()
+def class_wise_accuracy(algorithm, loader, device):
+    correct_hist = torch.zeros(10).to(device)
+    label_hist = torch.zeros(10).to(device)
+
+    algorithm.eval()
+    for imgs, labels in loader:
+        imgs, labels = imgs.to(device), labels.to(device)
+        output = algorithm.predict(imgs)
+
+        label_hist += torch.histc(labels, 10, max=10)
+        output = algorithm.predict(imgs)
+        pred = output.argmax(dim=1, keepdim=True)
+        correct_index = pred.eq(labels.view_as(pred)).squeeze()
+        label_correct = labels[correct_index]
+        correct_hist += torch.histc(label_correct, 10, max=10)
+    correct_rate_hist = correct_hist / label_hist
+    algorithm.train()
+
+    return [correct_rate_hist.cpu().numpy()]
+
+
 def adv_accuracy(algorithm, loader, device, attack):
     correct, total = 0, 0
 

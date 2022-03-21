@@ -32,12 +32,17 @@ def to_loaders(all_datasets, hparams):
     loaders = []
     for (s, d) in all_datasets.splits.items():
         if s in ['train_labeled','train_unlabeled']:
-            loaders += [_to_loader(s, d, hparams['batch_size']) ]
+            if d == None:
+                loaders += [None]
+            else:
+                loaders += [_to_loader(s, d, hparams['batch_size']) ]
         elif s == 'train_all':
             loaders += [_to_loader(s, d, hparams['unlabeled_batch_size'])]
         else:
             loaders += [_to_loader(s, d, 100)]
     return loaders
+
+
 
 class AdvRobDataset(Dataset):
 
@@ -74,13 +79,18 @@ class CIFAR10(AdvRobDataset):
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor()])
+        # train_transforms = transforms.ToTensor()
+
         test_transforms = transforms.ToTensor()
 
         train_data = CIFAR10_(root, train=True, transform=train_transforms, download = True) # Juan Here
         self.splits['train_all'] = train_data
         labeled_len = int(per_labeled * len(train_data))
         unlabeled_len = len(train_data) - labeled_len
-        self.splits['train_labeled'], self.splits['train_unlabeled'] = random_split(train_data,[labeled_len, unlabeled_len])
+        if per_labeled != 1:
+            self.splits['train_labeled'], self.splits['train_unlabeled'] = random_split(train_data,[labeled_len, unlabeled_len])
+        else:
+            self.splits['train_labeled'] = train_data
 
         # train_data = CIFAR10_(root, train=True, transform=train_transforms)
         # self.splits['val'] = Subset(train_data, range(45000, 50000))

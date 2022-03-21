@@ -5,15 +5,19 @@ import json
 import pandas as pd
 import time
 from datetime import datetime
+import pickle
+import scipy
 
 # Juan Added
 import numpy as np
 from torch.utils.data import Dataset, Subset, DataLoader, random_split
+from torchvision.utils import save_image
 from smooth import laplacian
-
+from sklearn.metrics.pairwise import euclidean_distances
 
 from humanfriendly import format_timespan
 
+from sklearn.neighbors import kneighbors_graph
 
 
 from smooth import datasets
@@ -35,8 +39,8 @@ def main(args, hparams, test_hparams):
     dataset = vars(datasets)[args.dataset](args.data_dir, args.per_labeled)
     # 'train_labeled', 'train_unlabeled', 'train_all', 'test'
     train_lab_ldr, train_unl_ldr, train_all_ldr, test_ldr = datasets.to_loaders(dataset, hparams)
-    print(len(train_lab_ldr),len(train_all_ldr))
 
+    print('Here')
     algorithm = vars(algorithms)[args.algorithm](
         dataset.INPUT_SHAPE, 
         dataset.NUM_CLASSES,
@@ -85,6 +89,11 @@ def main(args, hparams, test_hparams):
                     print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
 
                 timer.batch_end()
+##########################################################
+##########################################################
+################## Random Laplacian
+##########################################################
+##########################################################
         elif args.algorithm == 'ERM_AVG_LIP_RND':
             train_all_ldr_iterator = iter(train_all_ldr)
             for batch_idx, (imgs, labels) in enumerate(train_lab_ldr):
@@ -105,6 +114,99 @@ def main(args, hparams, test_hparams):
                     print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
 
                 timer.batch_end()
+##########################################################
+##########################################################
+################## KNN LAPLACIAN
+##########################################################
+##########################################################
+        elif args.algorithm == 'ERM_AVG_LIP_KNN':
+
+            # Here we get only a batch
+            # train_all_ldr_iterator = iter(train_all_ldr)
+            # dataset_unlab, _ = next(train_all_ldr_iterator)
+
+            # Here we get the whole dataset
+
+            train_all_ldr_full = DataLoader(dataset.splits['train_all'], batch_size=dataset.splits['train_all'].__len__(), shuffle=False)
+            print("Updated")
+            train_all_ldr_full_iter = iter(train_all_ldr_full)
+            dataset_unlab, _ = next(train_all_ldr_full_iter)
+            # save_image(dataset_unlab[0],'image.png')
+            # quit()
+            # print(dataset_unlab[0])
+            print('Tensor Shot')
+            start = datetime.now()
+            Adj = laplacian.get_pairwise_euclidean_distance_matrix(dataset_unlab)
+            print(datetime.now() - start)
+            print(Adj[1,2],Adj[50,1502],Adj[8642,15044],Adj[1650,4200])
+            print('Tensor Second Shot')
+            start = datetime.now()
+            Adj = laplacian.get_pairwise_euclidean_distance_matrix(dataset_unlab)
+            print(datetime.now() - start)
+            print(Adj[1,2],Adj[50,1502],Adj[8642,15044],Adj[1650,4200])
+
+
+            dataset_unlab = dataset_unlab.flatten(start_dim=1)
+            # pickle.dump()
+            dataset_unlab = dataset_unlab.numpy()
+            print('First Shot')
+            start = datetime.now()
+            # Adj = scipy.spatial.distance.cdist(dataset_unlab,dataset_unlab)
+            Adj = euclidean_distances(dataset_unlab,dataset_unlab)
+            print(datetime.now() - start)
+            print(Adj[1,2],Adj[50,1502],Adj[8642,15044],Adj[1650,4200])
+            print('Second shot')
+            start = datetime.now()
+            # Adj = scipy.spatial.distance.cdist(dataset_unlab,dataset_unlab)
+            Adj = euclidean_distances(dataset_unlab,dataset_unlab)
+            print(datetime.now() - start)
+            # A = laplacian.get_pairwise_euclidean_distance_matrix(dataset_unlab)
+            print(Adj[1,2],Adj[50,1502],Adj[8642,15044],Adj[1650,4200])
+            print('Now Squared')
+            print('First Squared')
+            start = datetime.now()
+            # Adj = scipy.spatial.distance.cdist(dataset_unlab,dataset_unlab)
+            Adj = euclidean_distances(dataset_unlab,dataset_unlab, squared = True)
+            print(datetime.now() - start)
+            # A = laplacian.get_pairwise_euclidean_distance_matrix(dataset_unlab)
+            print(Adj[1,2],Adj[50,1502],Adj[8642,15044],Adj[1650,4200])
+            print('Second squared')
+            start = datetime.now()
+            # Adj = scipy.spatial.distance.cdist(dataset_unlab,dataset_unlab)
+            Adj = euclidean_distances(dataset_unlab,dataset_unlab, squared = True)
+            print(datetime.now() - start)
+            # A = laplacian.get_pairwise_euclidean_distance_matrix(dataset_unlab)
+            print(Adj[1,2],Adj[50,1502],Adj[8642,15044],Adj[1650,4200])
+            k = 50
+            print(A.size())
+            start = datetime.now()
+            knn = kneighbors_graph(A, k, n_jobs = -1)
+            pickle.dump(knn, open("save.p", "wb"))
+            print(datetime.now() - start)
+            print(A)
+            # knn = pickle.load(open("cifar_10_nn.p", "rb"))
+
+
+            for batch_idx, (imgs, labels) in enumerate(train_lab_ldr):
+
+                timer.batch_start()
+                imgs_unlab, _ = next(train_all_ldr_iterator)
+                imgs_unlab = imgs_unlab.to(device)
+                imgs, labels = imgs.to(device), labels.to(device)
+
+                algorithm.step(imgs, labels, imgs_unlab)
+
+                if batch_idx % dataset.LOG_INTERVAL == 0:
+                    print(f'Train epoch {epoch}/{dataset.N_EPOCHS} ', end='')
+                    print(f'[{batch_idx * imgs.size(0)}/{len(train_lab_ldr.dataset)}', end=' ')
+                    print(f'({100. * batch_idx / len(train_lab_ldr):.0f}%)]\t', end='')
+                    for name, meter in algorithm.meters.items():
+                        print(f'{name}: {meter.val:.3f} (avg. {meter.avg:.3f})\t', end='')
+                    print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
+
+                timer.batch_end()
+
+
 ##########################################################
 ##########################################################
 ################## LAMBDA LAPLACIAN
@@ -152,6 +254,9 @@ def main(args, hparams, test_hparams):
         test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
 
+        test_clean_classwise_acc =misc.class_wise_accuracy(algorithm, test_ldr, device)
+        add_results_row([epoch, test_clean_classwise_acc, 'ERM', 'Test'])
+
         # # save adversarial accuracies on validation/test sets
         # test_adv_accs = []
         # for attack_name, attack in test_attacks.items():
@@ -172,6 +277,7 @@ def main(args, hparams, test_hparams):
         for name, meter in algorithm.meters.items():
             print(f'Avg. train {name}: {meter.avg:.3f}\t', end='')
         print(f'\nClean test accuracy: {test_clean_acc:.3f}\t', end='') # Juan Changed val. for test. AKS Alex
+        print("Clean test classwise accuracy:", test_clean_classwise_acc)  # Juan Changed val. for test. AKS Alex
         # for attack_name, acc in zip(test_attacks.keys(), test_adv_accs):
         #     print(f'{attack_name} val. accuracy: {acc:.3f}\t', end='')
         print('\n')

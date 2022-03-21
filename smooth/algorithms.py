@@ -95,7 +95,7 @@ class ERM_AVG_LIP_RND(Algorithm):
 class ERM_AVG_LIP_KNN(Algorithm):
     # This code implements the avg lipschitz algorithm constructing the laplacian with random samples
     def __init__(self, input_shape, num_classes, hparams, device):
-        super(ERM_AVG_LIP_RND, self).__init__(input_shape, num_classes, hparams, device)
+        super(ERM_AVG_LIP_KNN, self).__init__(input_shape, num_classes, hparams, device)
         self.regularizer = hparams['regularizer'] # Regularizer for the Avg Lip
         self.normalize = hparams['normalize']
         self.heat_kernel_t = hparams['heat_kernel_t']

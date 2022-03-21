@@ -7,11 +7,18 @@
 # python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 0.7
 # python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 0.8
 # python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 0.9
-# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 1
+python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 1
 
 # 
 #python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM_AVG_LIP --output_dir train-output --per_labeled 0.1  --normalize False --regularizer 0.1 --heat_kernel_t 10.55
-python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM_AVG_LIP_RND --output_dir train-output --per_labeled 0.1  --normalize True --regularizer 0.1 --heat_kernel_t 10.55
+# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output --per_labeled 0.1  --normalize True --regularizer 0.1 --heat_kernel_t 10.55
+# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output --per_labeled 0.1  --normalize True --regularizer 0.1 --heat_kernel_t 10.55
+# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output --per_labeled 0.1  --normalize True --regularizer 0.1 --heat_kernel_t 10.55
+# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output --per_labeled 0.1  --normalize True --regularizer 0.1 --heat_kernel_t 10.55
+# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output --per_labeled 0.1  --normalize True --regularizer 0.1 --heat_kernel_t 10.55
+# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output --per_labeled 0.1  --normalize True --regularizer 0.1 --heat_kernel_t 10.55
+# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output --per_labeled 0.1  --normalize True --regularizer 0.1 --heat_kernel_t 10.55
+
 
 # python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM_AVG_LIP --output_dir train-output --per_labeled 0.1  --normalize False --regularizer 0.2 --heat_kernel_t 10.55
 # python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM_AVG_LIP --output_dir train-output --per_labeled 0.1  --normalize True --regularizer 0.2 --heat_kernel_t 10.55

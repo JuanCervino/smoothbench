@@ -68,7 +68,7 @@ def main(args):
 
     # Commpute Adjacency Matrix
 
-    if args.metric == 'Euclidean':
+    if args.metric == 'euclidean':
         Adj = torch.cdist(flat,flat)
 
     elif args.metric == 'cosine_similarity':

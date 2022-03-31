@@ -134,3 +134,10 @@ def ResNet18():
 
 def ResNet50():
     return ResNet(Bottleneck, [3, 4, 6, 3])
+
+# Juan Added This
+activation = {}
+def get_activation(name):
+    def hook(model, input, output):
+        activation[name] = output.detach()
+    return hook

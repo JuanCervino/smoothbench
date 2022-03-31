@@ -72,14 +72,15 @@ class CIFAR10(AdvRobDataset):
     ADV_STEP_SIZE = 2/255.
     N_ADV_STEPS = 20
 
-    def __init__(self, root, per_labeled = 1):
+    def __init__(self, root, per_labeled = 1, transform = True):
         super(CIFAR10, self).__init__()
-
-        train_transforms = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor()])
-        # train_transforms = transforms.ToTensor()
+        if transform:
+            train_transforms = transforms.Compose([
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor()])
+        else:
+            train_transforms = transforms.ToTensor()
 
         test_transforms = transforms.ToTensor()
 

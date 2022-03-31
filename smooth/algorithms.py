@@ -55,6 +55,32 @@ class Algorithm(nn.Module):
         self.meters_df.loc[len(self.meters_df)] = values
         return self.meters_df
 
+
+
+class DISTANCE(Algorithm):
+
+    def __init__(self, input_shape, num_classes, hparams, device):
+        super(DISTANCE, self).__init__(input_shape, num_classes, hparams, device)
+
+    def step(self, imgs, labels):
+        raise NotImplementedError
+
+    # JUAN ADDED THIS
+    def get_middle_layer(self,imgs):
+        activation = {}
+
+        def get_activation(name):
+            def hook(classifier, imgs, output):
+                activation[name] = output.detach()
+
+            return hook
+
+        self.classifier.layer4.register_forward_hook(get_activation('layer4'))
+        output = self.classifier(imgs)
+        return activation['layer4']
+
+
+
 class ERM(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device):
         super(ERM, self).__init__(input_shape, num_classes, hparams, device)
@@ -64,9 +90,8 @@ class ERM(Algorithm):
         loss = F.cross_entropy(self.predict(imgs), labels)
         loss.backward()
         self.optimizer.step()
-        
-        self.meters['loss'].update(loss.item(), n=imgs.size(0))
 
+        self.meters['loss'].update(loss.item(), n=imgs.size(0))
 
 class ERM_AVG_LIP_RND(Algorithm):
     # This code implements the avg lipschitz algorithm constructing the laplacian with random samples
@@ -96,6 +121,78 @@ class ERM_AVG_LIP_KNN(Algorithm):
     # This code implements the avg lipschitz algorithm constructing the laplacian with random samples
     def __init__(self, input_shape, num_classes, hparams, device):
         super(ERM_AVG_LIP_KNN, self).__init__(input_shape, num_classes, hparams, device)
+        self.regularizer = hparams['regularizer'] # Regularizer for the Avg Lip
+        self.normalize = hparams['normalize']
+        self.heat_kernel_t = hparams['heat_kernel_t']
+
+    def step(self, imgs, labels, imgs_unlab):
+        # Change this to add the unlabeled data
+        self.optimizer.zero_grad()
+        loss = F.cross_entropy(self.predict(imgs), labels)
+
+        L = laplacian.get_laplacian(imgs_unlab, self.normalize, self.heat_kernel_t)
+        f = self.predict(imgs_unlab)
+
+        loss += self.regularizer * torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))
+        loss.backward()
+        self.optimizer.step()
+
+        print(F.cross_entropy(self.predict(imgs), labels),self.regularizer * torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))))
+
+        self.meters['loss'].update(loss.item(), n=imgs.size(0))
+
+class ERM_AVG_LIP_CHEAT(Algorithm):
+    # This code implements the avg lipschitz algorithm constructing the laplacian with random samples
+    def __init__(self, input_shape, num_classes, hparams, device):
+        super(ERM_AVG_LIP_CHEAT, self).__init__(input_shape, num_classes, hparams, device)
+        self.regularizer = hparams['regularizer'] # Regularizer for the Avg Lip
+        self.normalize = hparams['normalize']
+        self.heat_kernel_t = hparams['heat_kernel_t']
+
+    def step(self, imgs, labels, imgs_unlab):
+        # Change this to add the unlabeled data
+        self.optimizer.zero_grad()
+        loss = F.cross_entropy(self.predict(imgs), labels)
+
+        L = laplacian.get_laplacian(imgs_unlab, self.normalize, self.heat_kernel_t)
+        f = self.predict(imgs_unlab)
+
+        loss += self.regularizer * torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))
+        loss.backward()
+        self.optimizer.step()
+
+        print(F.cross_entropy(self.predict(imgs), labels),self.regularizer * torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))))
+
+        self.meters['loss'].update(loss.item(), n=imgs.size(0))
+
+class ERM_AVG_LIP_TRANSFORM(Algorithm):
+    # This code implements the avg lipschitz algorithm constructing the laplacian with random samples
+    def __init__(self, input_shape, num_classes, hparams, device):
+        super(ERM_AVG_LIP_TRANSFORM, self).__init__(input_shape, num_classes, hparams, device)
+        self.regularizer = hparams['regularizer'] # Regularizer for the Avg Lip
+        self.normalize = hparams['normalize']
+        self.heat_kernel_t = hparams['heat_kernel_t']
+
+    def step(self, imgs, labels, imgs_unlab):
+        # Change this to add the unlabeled data
+        self.optimizer.zero_grad()
+        loss = F.cross_entropy(self.predict(imgs), labels)
+
+        L = laplacian.get_laplacian(imgs_unlab, self.normalize, self.heat_kernel_t)
+        f = self.predict(imgs_unlab)
+
+        loss += self.regularizer * torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))
+        loss.backward()
+        self.optimizer.step()
+
+        print(F.cross_entropy(self.predict(imgs), labels),self.regularizer * torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))))
+
+        self.meters['loss'].update(loss.item(), n=imgs.size(0))
+
+class ERM_AVG_LIP_CNN_METRIC(Algorithm):
+    # This code implements the avg lipschitz algorithm constructing the laplacian with random samples
+    def __init__(self, input_shape, num_classes, hparams, device):
+        super(ERM_AVG_LIP_CNN_METRIC, self).__init__(input_shape, num_classes, hparams, device)
         self.regularizer = hparams['regularizer'] # Regularizer for the Avg Lip
         self.normalize = hparams['normalize']
         self.heat_kernel_t = hparams['heat_kernel_t']

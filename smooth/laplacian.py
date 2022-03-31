@@ -13,14 +13,14 @@ def get_pairwise_euclidean_distance_matrix(tensor):
     """
     flat = tensor.flatten(start_dim = 1)
     adj_matrix = torch.cdist(flat,flat)
-    # adj_matrix = torch.exp(-adj_matrix)/(4*t)
-    # adj_matrix = adj_matrix.fill_diagonal_(0) # Delete the diagonal elements
+
     return adj_matrix
 
 def get_pairwise_distance_matrix(tensor, t):
     """Compute pairwise distance of a tensor.
     Args:
         tensor: tensor (batch_size, num_points, num_dims)
+        t: scalar
     Returns:
         pairwise distance: (batch_size, num_points, num_points)
     """
@@ -30,7 +30,8 @@ def get_pairwise_distance_matrix(tensor, t):
     flat = tensor.flatten(start_dim = 1)
     adj_matrix = torch.cdist(flat,flat)
     adj_matrix = torch.square(adj_matrix)
-    adj_matrix = torch.div( adj_matrix, -4*10.55)
+
+    adj_matrix = torch.div( adj_matrix, -4*t)
     adj_matrix = torch.exp(adj_matrix)
     adj_matrix = adj_matrix.fill_diagonal_(0) # Delete the diagonal elements
 
@@ -48,7 +49,6 @@ def get_laplacian(imgs, normalize = False, heat_kernel_t = 10):
     """
 
     adj_matrix = get_pairwise_distance_matrix(imgs, heat_kernel_t)
-
     if normalize:
         D = torch.sum(adj_matrix, axis=1)  # (batch_size,num_points)
         eye = torch.eye(adj_matrix.size[0])

@@ -68,10 +68,10 @@ def main(args):
 
     # Commpute Adjacency Matrix
 
-    if args.distance == 'Euclidean':
+    if args.metric == 'Euclidean':
         Adj = torch.cdist(flat,flat)
 
-    elif args.distance == 'cosine_similarity':
+    elif args.metric == 'cosine_similarity':
         Adj = sklearn.metrics.pairwise.cosine_distances(flat)
 
     k = args.number_knn

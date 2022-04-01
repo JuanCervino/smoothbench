@@ -35,7 +35,14 @@ import sklearn
 
 
 class new_alexnet(torch.nn.Module):
-    def __init__(self, output_layer=None):
+    def __init__(self, output_layer=None, layer_n = 11):
+        # layer_n corresponds to the last layer to consider:
+        # 11 is conv 5
+        # 9 is conv 4
+        # 7 is conv 3
+        # 4 is conv 2
+        # 1 is conv 1
+
         super().__init__()
         self.pretrained = models.alexnet(pretrained=True)
         self.output_layer = output_layer
@@ -48,7 +55,7 @@ class new_alexnet(torch.nn.Module):
                 break
         for i in range(1, len(self.layers) - self.layer_count  ):
             self.dummy_var = self.pretrained._modules.pop(self.layers[-i])
-        self.net = torch.nn.Sequential(self.pretrained._modules['features'][0:11])
+        self.net = torch.nn.Sequential(self.pretrained._modules['features'][0:layer_n])
         print(self.net._modules)
 
         self.pretrained = None
@@ -92,7 +99,7 @@ def main(args):
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.49139968, 0.48215827, 0.44653124], std=[0.24703233, 0.24348505, 0.26158768]),
             ])
-    elif args.model == 'alexnet':
+    elif args.model in ['alexnet','resnet18']:
         if args.transforms == 'None':
             train_transforms = transforms.Compose([
                 transforms.Resize(224),
@@ -119,10 +126,7 @@ def main(args):
     elif args.model == 'alexnet':
         if args.pretrained == 'imagenet':
             train_all_ldr = DataLoader(dataset=train_data, batch_size=int(train_data.__len__()/10), shuffle=False)
-            # alexnet = models.alexnet(pretrained=True)
-            # print(alexnet._modules)
-            net = new_alexnet(output_layer='features')
-            print('here')
+            net = new_alexnet(output_layer='features', layer_n = args.layer_n)
             embedding = torch.Tensor()
             for batch_idx, (imgs_unlab, _) in enumerate(train_all_ldr):
                 with torch.no_grad():
@@ -137,8 +141,7 @@ def main(args):
     elif args.model == 'resnet18':
         if args.pretrained == 'imagenet':
             train_all_ldr = DataLoader(dataset=train_data, batch_size=int(train_data.__len__()/10), shuffle=False)
-            net = new_alexnet(output_layer='features')
-
+            net = new_resnet18(output_layer='layer'+str(args.layer_n))
             embedding = torch.Tensor()
             for batch_idx, (imgs_unlab, _) in enumerate(train_all_ldr):
                 with torch.no_grad():
@@ -149,6 +152,7 @@ def main(args):
                     embedding = torch.cat((embedding, prediction))
                     print(embedding.shape)
 
+            flat = embedding.flatten(start_dim=1)
 
 
     # Commpute Adjacency Matrix
@@ -202,17 +206,17 @@ if __name__ == '__main__':
     parser.add_argument('--number_knn', type=int, default=10, help='Number of KNNs')
     parser.add_argument('--metric', type=str, choices=['euclidean', 'cosine_similarity'],
                         default='euclidean', help='Distance to use')
-    parser.add_argument('--model', type=str, choices=['alexnet', 'None'],
+    parser.add_argument('--model', type=str, choices=['alexnet', 'resnet18', 'None'],
                         default='None', help='Model To Use, if none you work with data')
     parser.add_argument('--pretrained', type=str, choices=['None','cifar10', 'imagenet'],
                         default='None', help='Where was the model pretrained')
     parser.add_argument('--transforms', type=str, choices=['None','normalized'],
                         default='None', help='Where was the model pretrained')
-
+    parser.add_argument('--layer_n', type=int, default = 11 , help='At what layer are we truncating the neural network')
 
     args = parser.parse_args()
 
-    args.output_dir = args.output_dir + '/' + str(args.model) + '_' + str(args.transforms)+'_' + str(args.metric) + '_' + datetime.now().strftime("%Y-%m%d-%H%M%S")
+    args.output_dir = args.output_dir + '/' + str(args.model) + str(args.layer_n) + '_' + str(args.transforms)+'_' + str(args.metric) + '_' + datetime.now().strftime("%Y-%m%d-%H%M%S")
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
 
     print('Args:')

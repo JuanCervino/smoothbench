@@ -33,7 +33,6 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 import sklearn
 
-
 class new_alexnet(torch.nn.Module):
     def __init__(self, output_layer=None, layer_n = 11):
         # layer_n corresponds to the last layer to consider:
@@ -146,10 +145,9 @@ def main(args):
             for batch_idx, (imgs_unlab, _) in enumerate(train_all_ldr):
                 with torch.no_grad():
 
-                    prediction = torch.nn.functional.softmax(net(imgs_unlab), dim=1)
-
-                    prediction = prediction.to('cpu')
-                    embedding = torch.cat((embedding, prediction))
+                    intermediate_layer = net(imgs_unlab)
+                    intermediate_layer = intermediate_layer.to('cpu')
+                    embedding = torch.cat((embedding, intermediate_layer))
                     print(embedding.shape)
 
             flat = embedding.flatten(start_dim=1)

@@ -32,7 +32,7 @@ from smooth import laplacian
 import torchvision.models as models
 import torchvision.transforms as transforms
 import sklearn
-# import lpips
+import lpips
 
 
 class new_alexnet(torch.nn.Module):
@@ -93,13 +93,26 @@ def main(args):
 
     # Choose transform
     if args.model == 'None':
-        if args.transforms == 'None':
-            train_transforms = transforms.ToTensor()
-        elif args.transforms == 'normalized':
-            train_transforms = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.49139968, 0.48215827, 0.44653124], std=[0.24703233, 0.24348505, 0.26158768]),
-            ])
+        if args.metric in ['euclidean','cosine_similarity']:
+            if args.transforms == 'None':
+                train_transforms = transforms.ToTensor()
+            elif args.transforms == 'normalized':
+                train_transforms = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.49139968, 0.48215827, 0.44653124], std=[0.24703233, 0.24348505, 0.26158768]),
+                ])
+        elif args.metric in ['lpips_alex', 'lpips_resnet']:
+            if args.transforms == 'None':
+                train_transforms = transforms.Compose([
+                                    transforms.ToTensor(),
+                                    transforms.Resize(64),])
+            elif args.transforms == 'normalized':
+                train_transforms = transforms.Compose([
+                                    transforms.ToTensor(),
+                                    transforms.Resize(64),
+                                    transforms.Normalize(mean=[0.49139968, 0.48215827, 0.44653124],
+                                                         std=[0.24703233, 0.24348505, 0.26158768]), ])
+
     elif args.model in ['alexnet','resnet18']:
         if args.transforms == 'None':
             train_transforms = transforms.Compose([
@@ -112,19 +125,7 @@ def main(args):
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ])
-    elif args.model in ['lpips_alex','lpips_resnet']:
-        if args.transforms == 'None':
-            train_transforms = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Resize(64),
-            ])
-        elif args.transforms == 'normalized':
-            train_transforms = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Resize(64),
-                transforms.Normalize(mean=[0.49139968, 0.48215827, 0.44653124],
-                                     std=[0.24703233, 0.24348505, 0.26158768]),
-            ])
+
 
     # Create Dataset
     train_data = CIFAR10_(args.data_dir, train=True, transform=train_transforms, download=True)
@@ -132,11 +133,16 @@ def main(args):
 
     # Create Data
     if args.model == 'None':
+        if args.metric in ['euclidean','cosine_similarity']:
+            train_all_ldr = DataLoader(dataset=train_data, batch_size=int(train_data.__len__()), shuffle=False)
+            train_all_ldr_iter = iter(train_all_ldr)
+            dataset_unlab, _ = next(train_all_ldr_iter)
+            flat = dataset_unlab.flatten(start_dim=1)
+        elif args.metric in ['lpips_alex', 'lpips_resnet']:
+            train_all_ldr = DataLoader(dataset=train_data, batch_size=int(train_data.__len__()), shuffle=False)
+            train_all_ldr_iter = iter(train_all_ldr)
+            dataset_unlab, _ = next(train_all_ldr_iter)
 
-        train_all_ldr = DataLoader(dataset=train_data, batch_size=int(train_data.__len__()), shuffle=False)
-        train_all_ldr_iter = iter(train_all_ldr)
-        dataset_unlab, _ = next(train_all_ldr_iter)
-        flat = dataset_unlab.flatten(start_dim=1)
 
     elif args.model == 'alexnet':
         if args.pretrained == 'imagenet':
@@ -168,11 +174,6 @@ def main(args):
 
             flat = embedding.flatten(start_dim=1)
 
-    elif args.model in ['lpips_alex','lpips_resnet']:
-        train_all_ldr = DataLoader(dataset=train_data, batch_size=int(train_data.__len__()), shuffle=False)
-        train_all_ldr_iter = iter(train_all_ldr)
-        dataset_unlab, _ = next(train_all_ldr_iter)
-        flat = dataset_unlab.flatten(start_dim=1)
 
     # Commpute Adjacency Matrix
 
@@ -183,8 +184,32 @@ def main(args):
         Adj = sklearn.metrics.pairwise.cosine_distances(flat)
 
     elif args.metric == 'lpips_alex':
+        print('Here')
         loss_fn_alex = lpips.LPIPS(net='alex')
-        d = loss_fn_alex(img0, img1)
+        loss_fn_alex = loss_fn_alex.to(device)
+        Adj = torch.Tensor(50000,50000)
+        with torch.no_grad():
+            for i in range(50000):
+                for j in range(4):
+                    print(i,j,dataset_unlab.shape)
+                    d = loss_fn_alex(dataset_unlab[0+12500 * j : 12500 + 12500 * j ,:,:,:].to(device), dataset_unlab[i,:,:,:].to(device))
+                    d = d.to('cpu')
+                    Adj[0+12500 * j : 12500 + 12500 * j, i] = d [:,0,0,0]
+                    print(Adj)
+
+    elif args.metric == 'lpips_resnet':
+        print('Here')
+        loss_fn_resnet = lpips.LPIPS(net='resnet')
+        loss_fn_resnet = loss_fn_resnet.to(device)
+        Adj = torch.Tensor(50000,50000)
+        with torch.no_grad():
+            for i in range(50000):
+                for j in range(4):
+                    print(i,j,dataset_unlab.shape)
+                    d = loss_fn_resnet(dataset_unlab[0+12500 * j : 12500 + 12500 * j ,:,:,:].to(device), dataset_unlab[i,:,:,:].to(device))
+                    d = d.to('cpu')
+                    Adj[0+12500 * j : 12500 + 12500 * j, i] = d [:,0,0,0]
+                    print(Adj)
 
     k = args.number_knn
 
@@ -227,9 +252,9 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', type=str, default='knn')
     parser.add_argument('--dataset', type=str, default='CIFAR10', help='Dataset to use')
     parser.add_argument('--number_knn', type=int, default=10, help='Number of KNNs')
-    parser.add_argument('--metric', type=str, choices=['euclidean', 'cosine_similarity'],
+    parser.add_argument('--metric', type=str, choices=['euclidean', 'cosine_similarity', 'lpips_alex', 'lpips_resnet'],
                         default='euclidean', help='Distance to use')
-    parser.add_argument('--model', type=str, choices=['alexnet', 'resnet18', 'None', 'lpips_alex', 'lpips_resnet'],
+    parser.add_argument('--model', type=str, choices=['alexnet', 'resnet18', 'None'],
                         default='None', help='Model To Use, if none you work with data')
     parser.add_argument('--pretrained', type=str, choices=['None','cifar10', 'imagenet'],
                         default='None', help='Where was the model pretrained')

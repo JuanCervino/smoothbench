@@ -32,6 +32,8 @@ from smooth import laplacian
 import torchvision.models as models
 import torchvision.transforms as transforms
 import sklearn
+import lpips
+
 
 class new_alexnet(torch.nn.Module):
     def __init__(self, output_layer=None, layer_n = 11):
@@ -110,11 +112,25 @@ def main(args):
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ])
+    elif args.model in ['lpips_alex','lpips_resnet']:
+        if args.transforms == 'None':
+            train_transforms = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Resize(64),
+            ])
+        elif args.transforms == 'normalized':
+            train_transforms = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Resize(64),
+                transforms.Normalize(mean=[0.49139968, 0.48215827, 0.44653124],
+                                     std=[0.24703233, 0.24348505, 0.26158768]),
+            ])
+
     # Create Dataset
     train_data = CIFAR10_(args.data_dir, train=True, transform=train_transforms, download=True)
 
 
-    # Create Model
+    # Create Data
     if args.model == 'None':
 
         train_all_ldr = DataLoader(dataset=train_data, batch_size=int(train_data.__len__()), shuffle=False)
@@ -152,6 +168,11 @@ def main(args):
 
             flat = embedding.flatten(start_dim=1)
 
+    elif args.model in ['lpips_alex','lpips_resnet']:
+        train_all_ldr = DataLoader(dataset=train_data, batch_size=int(train_data.__len__()), shuffle=False)
+        train_all_ldr_iter = iter(train_all_ldr)
+        dataset_unlab, _ = next(train_all_ldr_iter)
+        flat = dataset_unlab.flatten(start_dim=1)
 
     # Commpute Adjacency Matrix
 
@@ -160,6 +181,10 @@ def main(args):
 
     elif args.metric == 'cosine_similarity':
         Adj = sklearn.metrics.pairwise.cosine_distances(flat)
+
+    elif args.metric == 'lpips_alex':
+        loss_fn_alex = lpips.LPIPS(net='alex')
+        d = loss_fn_alex(img0, img1)
 
     k = args.number_knn
 
@@ -204,12 +229,12 @@ if __name__ == '__main__':
     parser.add_argument('--number_knn', type=int, default=10, help='Number of KNNs')
     parser.add_argument('--metric', type=str, choices=['euclidean', 'cosine_similarity'],
                         default='euclidean', help='Distance to use')
-    parser.add_argument('--model', type=str, choices=['alexnet', 'resnet18', 'None'],
+    parser.add_argument('--model', type=str, choices=['alexnet', 'resnet18', 'None', 'lpips_alex', 'lpips_resnet'],
                         default='None', help='Model To Use, if none you work with data')
     parser.add_argument('--pretrained', type=str, choices=['None','cifar10', 'imagenet'],
                         default='None', help='Where was the model pretrained')
     parser.add_argument('--transforms', type=str, choices=['None','normalized'],
-                        default='None', help='Where was the model pretrained')
+                        default='None', help='What transform to apply to your data')
     parser.add_argument('--layer_n', type=int, default = 11 , help='At what layer are we truncating the neural network')
 
     args = parser.parse_args()

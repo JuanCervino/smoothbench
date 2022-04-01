@@ -34,19 +34,76 @@ import torchvision.transforms as transforms
 import sklearn
 
 
+class new_alexnet(torch.nn.Module):
+    def __init__(self, output_layer=None):
+        super().__init__()
+        self.pretrained = models.alexnet(pretrained=True)
+        self.output_layer = output_layer
+        self.layers = list(self.pretrained._modules.keys())
+        self.layer_count = 0
+        for l in self.layers:
+            if l != self.output_layer:
+                self.layer_count += 1
+            else:
+                break
+        for i in range(1, len(self.layers) - self.layer_count  ):
+            self.dummy_var = self.pretrained._modules.pop(self.layers[-i])
+        self.net = torch.nn.Sequential(self.pretrained._modules['features'][0:11])
+        print(self.net._modules)
+
+        self.pretrained = None
+
+    def forward(self, x):
+        x = self.net(x)
+        return x
+
+class new_resnet18(torch.nn.Module):
+    def __init__(self, output_layer=None):
+        super().__init__()
+        self.pretrained = models.resnet18(pretrained=True)
+        self.output_layer = output_layer
+        self.layers = list(self.pretrained._modules.keys())
+        self.layer_count = 0
+        for l in self.layers:
+            if l != self.output_layer:
+                self.layer_count += 1
+            else:
+                break
+        for i in range(1, len(self.layers) - self.layer_count):
+            self.dummy_var = self.pretrained._modules.pop(self.layers[-i])
+
+        self.net = torch.nn.Sequential(self.pretrained._modules)
+        self.pretrained = None
+
+    def forward(self, x):
+        x = self.net(x)
+        return x
+
 def main(args):
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # Choose transform
-    if args.transforms == 'None':
-        train_transforms = transforms.ToTensor()
-    elif args.transforms == 'Normalized':
-        train_transforms = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.49139968, 0.48215827, 0.44653124], std=[0.24703233, 0.24348505, 0.26158768]),
-        ])
-
+    if args.model == 'None':
+        if args.transforms == 'None':
+            train_transforms = transforms.ToTensor()
+        elif args.transforms == 'normalized':
+            train_transforms = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.49139968, 0.48215827, 0.44653124], std=[0.24703233, 0.24348505, 0.26158768]),
+            ])
+    elif args.model == 'alexnet':
+        if args.transforms == 'None':
+            train_transforms = transforms.Compose([
+                transforms.Resize(224),
+                transforms.ToTensor(),
+            ])
+        elif args.transforms == 'normalized':
+            train_transforms = transforms.Compose([
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ])
     # Create Dataset
     train_data = CIFAR10_(args.data_dir, train=True, transform=train_transforms, download=True)
 
@@ -59,10 +116,38 @@ def main(args):
         dataset_unlab, _ = next(train_all_ldr_iter)
         flat = dataset_unlab.flatten(start_dim=1)
 
-    elif args.model == 'resnet18':
-        DataLoader(dataset=train_data, batch_size=int(train_data.__len__()/10), shuffle=False)
-        print('Create it')
+    elif args.model == 'alexnet':
+        if args.pretrained == 'imagenet':
+            train_all_ldr = DataLoader(dataset=train_data, batch_size=int(train_data.__len__()/10), shuffle=False)
+            # alexnet = models.alexnet(pretrained=True)
+            # print(alexnet._modules)
+            net = new_alexnet(output_layer='features')
+            print('here')
+            embedding = torch.Tensor()
+            for batch_idx, (imgs_unlab, _) in enumerate(train_all_ldr):
+                with torch.no_grad():
 
+                    intermediate_layer = net(imgs_unlab)
+                    intermediate_layer = intermediate_layer.to('cpu')
+                    embedding = torch.cat((embedding, intermediate_layer))
+                    print(embedding.shape)
+
+            flat = embedding.flatten(start_dim=1)
+
+    elif args.model == 'resnet18':
+        if args.pretrained == 'imagenet':
+            train_all_ldr = DataLoader(dataset=train_data, batch_size=int(train_data.__len__()/10), shuffle=False)
+            net = new_alexnet(output_layer='features')
+
+            embedding = torch.Tensor()
+            for batch_idx, (imgs_unlab, _) in enumerate(train_all_ldr):
+                with torch.no_grad():
+
+                    prediction = torch.nn.functional.softmax(net(imgs_unlab), dim=1)
+
+                    prediction = prediction.to('cpu')
+                    embedding = torch.cat((embedding, prediction))
+                    print(embedding.shape)
 
 
 
@@ -117,17 +202,17 @@ if __name__ == '__main__':
     parser.add_argument('--number_knn', type=int, default=10, help='Number of KNNs')
     parser.add_argument('--metric', type=str, choices=['euclidean', 'cosine_similarity'],
                         default='euclidean', help='Distance to use')
-    parser.add_argument('--model', type=str, choices=['resnet18', 'None'],
-                        default='None', help='Model To Use')
+    parser.add_argument('--model', type=str, choices=['alexnet', 'None'],
+                        default='None', help='Model To Use, if none you work with data')
     parser.add_argument('--pretrained', type=str, choices=['None','cifar10', 'imagenet'],
                         default='None', help='Where was the model pretrained')
-    parser.add_argument('--transforms', type=str, choices=['None','Normalized'],
+    parser.add_argument('--transforms', type=str, choices=['None','normalized'],
                         default='None', help='Where was the model pretrained')
 
 
     args = parser.parse_args()
 
-    args.output_dir = args.output_dir + '/' + str(args.model) + '_' + str(args.metric) + '_' + datetime.now().strftime("%Y-%m%d-%H%M%S")
+    args.output_dir = args.output_dir + '/' + str(args.model) + '_' + str(args.transforms)+'_' + str(args.metric) + '_' + datetime.now().strftime("%Y-%m%d-%H%M%S")
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
 
     print('Args:')

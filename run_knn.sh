@@ -19,7 +19,7 @@
 #python -m smooth.scripts.compute_knn --dataset CIFAR10  --transforms None --metric cosine_similarity --pretrained imagenet --model resnet18 --layer_n 3
 #python -m smooth.scripts.compute_knn --dataset CIFAR10  --transforms None --metric cosine_similarity --pretrained imagenet --model resnet18 --layer_n 4
 
-python -m smooth.scripts.compute_knn --dataset CIFAR10  --transforms normalized --metric lpips_alex --pretrained imagenet
+#python -m smooth.scripts.compute_knn --dataset CIFAR10  --transforms normalized --metric lpips_alex --pretrained imagenet
 python -m smooth.scripts.compute_knn --dataset CIFAR10  --transforms normalized --metric lpips_resnet --pretrained imagenet
 
 

@@ -101,7 +101,7 @@ def main(args):
                     transforms.ToTensor(),
                     transforms.Normalize(mean=[0.49139968, 0.48215827, 0.44653124], std=[0.24703233, 0.24348505, 0.26158768]),
                 ])
-        elif args.metric in ['lpips_alex', 'lpips_resnet']:
+        elif args.metric in ['lpips_alex', 'lpips_vgg']:
             if args.transforms == 'None':
                 train_transforms = transforms.Compose([
                                     transforms.ToTensor(),
@@ -138,7 +138,7 @@ def main(args):
             train_all_ldr_iter = iter(train_all_ldr)
             dataset_unlab, _ = next(train_all_ldr_iter)
             flat = dataset_unlab.flatten(start_dim=1)
-        elif args.metric in ['lpips_alex', 'lpips_resnet']:
+        elif args.metric in ['lpips_alex', 'lpips_vgg']:
             train_all_ldr = DataLoader(dataset=train_data, batch_size=int(train_data.__len__()), shuffle=False)
             train_all_ldr_iter = iter(train_all_ldr)
             dataset_unlab, _ = next(train_all_ldr_iter)
@@ -197,9 +197,9 @@ def main(args):
                     Adj[0+12500 * j : 12500 + 12500 * j, i] = d [:,0,0,0]
                     print(Adj)
 
-    elif args.metric == 'lpips_resnet':
+    elif args.metric == 'lpips_vgg':
         print('Here')
-        loss_fn_resnet = lpips.LPIPS(net='resnet')
+        loss_fn_resnet = lpips.LPIPS(net='vgg')
         loss_fn_resnet = loss_fn_resnet.to(device)
         Adj = torch.Tensor(50000,50000)
         with torch.no_grad():
@@ -252,7 +252,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', type=str, default='knn')
     parser.add_argument('--dataset', type=str, default='CIFAR10', help='Dataset to use')
     parser.add_argument('--number_knn', type=int, default=10, help='Number of KNNs')
-    parser.add_argument('--metric', type=str, choices=['euclidean', 'cosine_similarity', 'lpips_alex', 'lpips_resnet'],
+    parser.add_argument('--metric', type=str, choices=['euclidean', 'cosine_similarity', 'lpips_alex', 'lpips_vgg'],
                         default='euclidean', help='Distance to use')
     parser.add_argument('--model', type=str, choices=['alexnet', 'resnet18', 'None'],
                         default='None', help='Model To Use, if none you work with data')

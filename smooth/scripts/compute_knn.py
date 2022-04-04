@@ -204,11 +204,11 @@ def main(args):
         Adj = torch.Tensor(50000,50000)
         with torch.no_grad():
             for i in range(50000):
-                for j in range(50):
+                for j in range(20):
                     print(i,j,dataset_unlab.shape)
-                    d = loss_fn_resnet(dataset_unlab[0+1000 * j : 1000 + 1000 * j ,:,:,:].to(device), dataset_unlab[i,:,:,:].to(device))
+                    d = loss_fn_resnet(dataset_unlab[0+2500 * j : 2500 + 2500 * j ,:,:,:].to(device), dataset_unlab[i,:,:,:].to(device))
                     d = d.to('cpu')
-                    Adj[0+1000 * j : 1000 + 1000 * j, i] = d [:,0,0,0]
+                    Adj[0+2500 * j : 2500 + 2500 * j, i] = d [:,0,0,0]
                     print(Adj)
 
     k = args.number_knn

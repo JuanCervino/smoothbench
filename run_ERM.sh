@@ -37,8 +37,21 @@
 python -m smooth.scripts.train_no_attack\
 			--dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output\
 			 --precalculated_folder knn-baselines2/resnet184_None_cosine_similarity_2022-0401-190338\
-			  --k 3 --normalize True --regularizer 0.1 --heat_kernel_t 10.5 --unlab_augmentation 5\
-			  --per_labeled 0.1 --unlab_batch_size 10
+			  --k 3 --normalize True --regularizer 1 --heat_kernel_t 10.5 --unlab_augmentation 5\
+			  --per_labeled 0.001 --unlab_batch_size 10
+
+
+python -m smooth.scripts.train_no_attack\
+			--dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output\
+			 --precalculated_folder knn-baselines2/resnet184_None_cosine_similarity_2022-0401-190338\
+			  --k 5 --normalize True --regularizer 1 --heat_kernel_t 10.5 --unlab_augmentation 5\
+			  --per_labeled 0.001 --unlab_batch_size 10
+
+python -m smooth.scripts.train_no_attack\
+			--dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output\
+			 --precalculated_folder knn-baselines2/resnet184_None_cosine_similarity_2022-0401-190338\
+			  --k 10 --normalize True --regularizer 1 --heat_kernel_t 10.5 --unlab_augmentation 5\
+			  --per_labeled 0.001 --unlab_batch_size 10
 
 
 # python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM_AVG_LIP_CNN_METRIC --output_dir train-output 

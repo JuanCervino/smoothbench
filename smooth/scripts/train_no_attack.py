@@ -33,7 +33,7 @@ def main(args, hparams, test_hparams):
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     hparams['regularizer'] = args.regularizer
-    hparams['unlabeled_batch_size'] = args.unlabeled_batch_size
+    hparams['unlab_batch_size'] = args.unlab_batch_size
     hparams['heat_kernel_t'] = args.heat_kernel_t
 
 
@@ -74,6 +74,12 @@ def main(args, hparams, test_hparams):
 
         # Juan added this
         if args.algorithm not in ['ERM_AVG_LIP_RND', 'ERM_AVG_LIP_KNN', 'ERM_LAMBDA_LIP', 'ERM_AVG_LIP_CHEAT','ERM_AVG_LIP_TRANSFORM','ERM_AVG_LIP_CNN_METRIC']:
+##########################################################
+##########################################################
+################## ERM  ##################################
+##########################################################
+##########################################################
+
             for batch_idx, (imgs, labels) in enumerate(train_lab_ldr):
 
                 timer.batch_start()
@@ -114,78 +120,6 @@ def main(args, hparams, test_hparams):
                     print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
 
                 timer.batch_end()
-##########################################################
-##########################################################
-################## CNN METRIC KNN LAPLACIAN
-##########################################################
-##########################################################
-        elif args.algorithm == 'ERM_AVG_LIP_CNN_METRIC':
-
-
-            # Load the pretrained CNN
-            # pre_trained = torch.load (os.path.join(os.getcwd()+'/train-output-baselines2/ERM_0.001_2022-0310-203526/',f'ckpt.pkl'))
-            #
-            # distance = vars(algorithms)['DISTANCE'](
-            #     dataset.INPUT_SHAPE,
-            #     dataset.NUM_CLASSES,
-            #     hparams,
-            #     device).to(device)
-            # distance.load_state_dict(pre_trained['model'])
-
-            import torchvision.models as models
-            import torchvision.transforms as transforms
-
-            resnet18 = models.resnet18(pretrained=True)
-            # out = resnet18(torch.rand(1, 3, 224,224))
-            # train_transforms = transforms.Compose([
-            #     # transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-            #     transforms.Normalize((0.49139968, 0.48215827, 0.44653124), (0.24703233, 0.24348505, 0.26158768)), # Cifar 10
-            #     transforms.RandomCrop(32, padding=224 - 32),
-            #     transforms.RandomHorizontalFlip()])
-            #
-            # transforms.RandomCrop(32, padding=224-32),
-            # transforms.RandomHorizontalFlip()
-            #
-            dataset_no_trans = vars(datasets)[args.dataset](args.data_dir, args.per_labeled, transform = False)
-            # # train_all_ldr_full_no_trans = DataLoader(dataset_no_trans.splits['train_all'], batch_size=dataset_no_trans.splits['train_all'].__len__(), shuffle=False)
-            # # train_all_ldr_full_no_trans = DataLoader(dataset_no_trans.splits['train_all'], batch_size=int(dataset_no_trans.splits['train_all'].__len__()), shuffle=False)
-            # sample_to_augment = np.random.choice(dataset_with_augment.splits['train_all'].__len__(), 1)
-            #
-            # batch_samples_to_transform = torch.utils.data.Subset(dataset_no_trans.splits['train_all'],
-            #                                                      sample_to_augment)
-            # batch_samples_ldr_iterator = for arg in args:
-            #     pass
-
-
-            #
-            embedding = torch.Tensor()
-            for batch_idx, (imgs_unlab, _) in enumerate(train_all_ldr_full_no_trans):
-                with torch.no_grad():
-                    # imgs_unlab = imgs_unlab.to(device)
-                    # prediction = torch.nn.functional.softmax(distance.predict(imgs_unlab), dim = 1)
-                    prediction = torch.nn.functional.softmax(resnet18(imgs_unlab), dim = 1)
-
-                    prediction = prediction.to('cpu')
-                    embedding = torch.cat((embedding,prediction))
-
-                print(embedding.shape)
-
-            flat = embedding.flatten(start_dim=1)
-
-            adj_matrix = torch.cdist(flat, flat)
-
-            # adj_matrix = torch.nn.functional.cosine_similarity(flat, flat)
-            # import sklearn
-            # print(adj_matrix.shape)
-            # adj_matrix = sklearn.metrics.pairwise.cosine_distances(flat)
-            # print(adj_matrix.shape)
-            # k = 10
-
-            knn = kneighbors_graph(adj_matrix, k)
-
-            pickle.dump(knn, open("knn_10_embedding.p", "wb"))
-            exit()
-
 
 ##########################################################
 ##########################################################
@@ -194,39 +128,52 @@ def main(args, hparams, test_hparams):
 ##########################################################
         elif args.algorithm == 'ERM_AVG_LIP_KNN':
 
-            # Here we get the whole dataset
-            # Calculate the KNNs
-            import torchvision.transforms as transforms
-            from torchvision.datasets import CIFAR10 as CIFAR10_
+            # Here we get the dataset
+            dataset_unlab = vars(datasets)[args.dataset](args.data_dir, 1, transform = args.unlab_augmentation!=1)
+            dataset_unlab = dataset_unlab.splits['train_all']
 
-            train_data = CIFAR10_(root, train=True, transform=train_transforms, download=True)  # Juan Here
-            train_all_ldr_full_no_trans = DataLoader(dataset_no_trans.splits['train_all'], batch_size=dataset_no_trans.splits['train_all'].__len__(), shuffle=False)
+            # _, _, train_all_ldr_unlab, _ = datasets.to_loaders(dataset_unlab, hparams)
+            # train_all_ldr_full = DataLoader(dataset.splits['train_all'], batch_size=dataset.splits['train_all'].__len__(), shuffle=False)
 
-            train_all_ldr_full_iter_no_trans = iter(train_all_ldr_full_no_trans)
-            dataset_unlab, _ = next(train_all_ldr_full_iter_no_trans)
-            #
-            Adj = laplacian.get_pairwise_euclidean_distance_matrix(dataset_unlab)
-            k = 10
-            knn = kneighbors_graph(Adj, k)
-            pickle.dump(knn, open("knn_10.p", "wb"))
-            exit()
+            # Now we load the neighbours
+            knn = pkl.load(open(args.precalculated_folder + '/knn.p', "rb"))
 
-            # train_all_ldr_iterator = iter(train_all_ldr)
-            # knn = pkl.load(open("knn_3.p", "rb"))
 
             for batch_idx, (imgs, labels) in enumerate(train_lab_ldr):
 
                 timer.batch_start()
-                # Test the Neighbours all together first
-                batch_idx_lap = np.random.choice(dataset.splits['train_all'].__len__(), hparams['unlabeled_batch_size'])
-                # batch_idx_knn = [[knn[idx].indices] for idx in batch_idx]
 
-                batch_idx_lap_knn = knn[batch_idx_lap].indices.tolist() + batch_idx_lap.tolist()
-                batch_samples_lap_knn = torch.utils.data.Subset(dataset_no_trans.splits['train_all'], batch_idx_lap_knn)
-                batch_samples_ldr_iterator = iter(DataLoader(batch_samples_lap_knn, batch_size=dataset_no_trans.splits['train_all'].__len__(), shuffle=False)) # set shuffle to False
+                # Get the points for the Laplacian
+                batch_idx_lap = np.random.choice(len(dataset_unlab), args.unlab_batch_size)
 
-                imgs_unlab, _ = next(batch_samples_ldr_iterator)
-                imgs_unlab = imgs_unlab.to(device)
+                imgs_unlab = [torch.Tensor() for l in range(args.unlab_batch_size)]
+                # ten = torch.Tensor
+                for i in range(args.unlab_batch_size):
+                    batch_idx_lap_knn = knn[batch_idx_lap[i]].indices.tolist()[0:args.k]
+                    laplacian_dataloader = torch.utils.data.Subset(dataset_unlab, batch_idx_lap_knn + [batch_idx_lap[i]])
+                    laplacian_ldr = torch.utils.data.DataLoader(laplacian_dataloader, batch_size=laplacian_dataloader.__len__(), shuffle=True,
+                                                   num_workers=12)
+                    if args.unlab_augmentation == 1:
+                        batch_samples_ldr_iterator = iter(laplacian_ldr)  # set shuffle to False
+                        # imgs_unlab[i] = next(batch_samples_ldr_iterator)
+                        imgs_unlab[i], _ = next(batch_samples_ldr_iterator)
+                    else:
+                        batch_samples_ldr_iterator = iter(laplacian_ldr)  # set shuffle to False
+                        # imgs_unlab[i] = next(batch_samples_ldr_iterator)
+                        imgs_unlab[i], _ = next(batch_samples_ldr_iterator)
+
+                        for j in range(args.unlab_augmentation-1):
+                            batch_samples_ldr_iterator = iter(laplacian_ldr)
+                            # print(type(imgs_unlab[i]))
+                            # imgs_unlab[i] = torch.cat((imgs_unlab[i],next(batch_samples_ldr_iterator)))
+                            aux, _ = next(batch_samples_ldr_iterator)
+                            imgs_unlab[i] = torch.cat((imgs_unlab[i],aux))
+                            # print(len(imgs_unlab[i]))
+                        # ten = ten.to(device)
+                        imgs_unlab[i] = imgs_unlab[i].to(device)
+                        # print(i,j,'here',args.unlab_augmentation)
+
+                # imgs_unlab = imgs_unlab.to(device)
                 imgs, labels = imgs.to(device), labels.to(device)
 
                 algorithm.step(imgs, labels, imgs_unlab)
@@ -240,100 +187,6 @@ def main(args, hparams, test_hparams):
 
                 timer.batch_end()
 
-            ##########################################################
-            ##########################################################
-            ################## KNN LAPLACIAN
-            ##########################################################
-            ##########################################################
-        elif args.algorithm == 'ERM_AVG_LIP_CHEAT':
-            dataset_no_trans = vars(datasets)[args.dataset](args.data_dir, args.per_labeled, transform=False)
-            # train_all_ldr_full_no_trans = DataLoader(dataset_no_trans.splits['train_all'], batch_size=dataset_no_trans.splits['train_all'].__len__(), shuffle=False)
-
-            # train_all_ldr_full_iter_no_trans = iter(train_all_ldr_full_no_trans)
-            # dataset_unlab, _ = next(train_all_ldr_full_iter_no_trans)
-            #
-            # Adj = laplacian.get_pairwise_euclidean_distance_matrix(dataset_unlab)
-            # k = 10
-            # knn = kneighbors_graph(Adj, k, n_jobs = -1)
-            # pickle.dump(knn, open("knn_10.p", "wb"))
-
-            # train_all_ldr_iterator = iter(train_all_ldr)
-            knn = pkl.load(open("knn_10.p", "rb"))
-
-            for batch_idx, (imgs, labels) in enumerate(train_lab_ldr):
-
-                timer.batch_start()
-
-                idx_with_same_label = []
-                while not idx_with_same_label :
-                # Test the Neighbours all together first
-                    batch_idx_lap = np.random.choice(dataset.splits['train_all'].__len__(),
-                                                     hparams['unlabeled_batch_size'])
-                    print(batch_idx_lap)
-                    idx_with_same_label = [i for i in knn[batch_idx_lap].indices.tolist()  if dataset_no_trans.splits['train_all'][i][1] == dataset_no_trans.splits['train_all'][batch_idx_lap[0]][1] ]
-
-                batch_idx_lap_knn = idx_with_same_label + batch_idx_lap.tolist()
-
-                batch_samples_lap_knn = torch.utils.data.Subset(dataset_no_trans.splits['train_all'],
-                                                                batch_idx_lap_knn)
-                batch_samples_ldr_iterator = iter(
-                    DataLoader(batch_samples_lap_knn, batch_size=dataset_no_trans.splits['train_all'].__len__(),
-                               shuffle=False))  # set shuffle to False
-
-                imgs_unlab, imgs_unlab_labels = next(batch_samples_ldr_iterator)
-                print(imgs_unlab_labels)
-                imgs_unlab = imgs_unlab.to(device)
-                imgs, labels = imgs.to(device), labels.to(device)
-
-                algorithm.step(imgs, labels, imgs_unlab)
-                if batch_idx % dataset.LOG_INTERVAL == 0:
-                    print(f'Train epoch {epoch}/{dataset.N_EPOCHS} ', end='')
-                    print(f'[{batch_idx * imgs.size(0)}/{len(train_lab_ldr.dataset)}', end=' ')
-                    print(f'({100. * batch_idx / len(train_lab_ldr):.0f}%)]\t', end='')
-                    for name, meter in algorithm.meters.items():
-                        print(f'{name}: {meter.val:.3f} (avg. {meter.avg:.3f})\t', end='')
-                    print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
-
-                timer.batch_end()
-        ##########################################################
-        ##########################################################
-        ################## LAMBDA LAPLACIAN
-        ##########################################################
-        ##########################################################
-        elif args.algorithm == 'ERM_AVG_LIP_TRANSFORM':
-            dataset_with_augment = vars(datasets)[args.dataset](args.data_dir, args.per_labeled, transform=True)
-
-            for batch_idx, (imgs, labels) in enumerate(train_lab_ldr):
-
-                timer.batch_start()
-                sample_to_augment = np.random.choice(dataset_with_augment.splits['train_all'].__len__(),1)
-
-                batch_samples_to_transform = torch.utils.data.Subset(dataset_with_augment.splits['train_all'], sample_to_augment)
-                batch_samples_ldr_iterator = iter(
-                    DataLoader(batch_samples_to_transform, batch_size=1, shuffle=False))
-
-                lst_img, _ = next(batch_samples_ldr_iterator)
-
-                for i in range(hparams['unlabeled_batch_size']):
-                    batch_samples_ldr_iterator = iter(
-                        DataLoader(batch_samples_to_transform, batch_size=2, shuffle=False))
-
-                    img, _ = next(batch_samples_ldr_iterator)
-                    lst_img = torch.cat((lst_img, img), 0)
-
-                lst_img = lst_img.to(device)
-                imgs, labels = imgs.to(device), labels.to(device)
-
-                algorithm.step(imgs, labels, lst_img)
-                if batch_idx % dataset.LOG_INTERVAL == 0:
-                    print(f'Train epoch {epoch}/{dataset.N_EPOCHS} ', end='')
-                    print(f'[{batch_idx * imgs.size(0)}/{len(train_lab_ldr.dataset)}', end=' ')
-                    print(f'({100. * batch_idx / len(train_lab_ldr):.0f}%)]\t', end='')
-                    for name, meter in algorithm.meters.items():
-                        print(f'{name}: {meter.val:.3f} (avg. {meter.avg:.3f})\t', end='')
-                    print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
-
-                timer.batch_end()
 
 ##########################################################
 ##########################################################
@@ -430,7 +283,7 @@ def main(args, hparams, test_hparams):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Adversarial robustness evaluation')
+    parser = argparse.ArgumentParser(description='Smoothness')
     parser.add_argument('--data_dir', type=str, default='./smooth/data')
     parser.add_argument('--output_dir', type=str, default='train_output')
     parser.add_argument('--dataset', type=str, default='MNIST', help='Dataset to use')
@@ -445,10 +298,14 @@ if __name__ == '__main__':
     parser.add_argument('--normalize', type=bool, default=False, help='Normalize the Laplacian')
     parser.add_argument('--regularizer', type=float, default=.1, help='Regularizer for the SSL')
     parser.add_argument('--per_labeled', type=float, default=1., help='Percentage of training set that will be labeled (between (0,1])')
-    parser.add_argument('--unlabeled_batch_size', type=int, default=128, help='Batchsize used to compute Laplacian')
-    parser.add_argument('--heat_kernel_t', type=float, default=1., help='Value of t in the Heat Kernel computation ')
+    parser.add_argument('--unlab_batch_size', type=int, default=128, help='Batchsize used to compute Laplacian')
+    parser.add_argument('--heat_kernel_t', type=float, default=1., help='Value of t in the Heat Kernel computation')
 
-
+    # Laplacian
+    parser.add_argument('--k', type=int, default=3, help='Number of KNNs')
+    parser.add_argument('--precalculated_folder', type=str, default='None', help='Folder with precalculated KNNs')
+    parser.add_argument('--unlab_augmentation', type=int, default=1,
+                        help='Number of augmentations in unlab data, if it is larger than 1, data augmentation will be used')
 
     args = parser.parse_args()
 

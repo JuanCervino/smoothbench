@@ -37,7 +37,7 @@ def to_loaders(all_datasets, hparams):
             else:
                 loaders += [_to_loader(s, d, hparams['batch_size']) ]
         elif s == 'train_all':
-            loaders += [_to_loader(s, d, hparams['unlabeled_batch_size'])]
+            loaders += [_to_loader(s, d, hparams['unlab_batch_size'])]
         else:
             loaders += [_to_loader(s, d, 100)]
     return loaders

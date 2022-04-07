@@ -28,7 +28,7 @@ def to_loaders(all_datasets, hparams):
             dataset=dataset,
             batch_size=batch_size,
             num_workers=all_datasets.N_WORKERS,
-            shuffle=(split != 'test'))
+            shuffle=(split not in ['test', 'train_all']))
     loaders = []
     for (s, d) in all_datasets.splits.items():
         if s in ['train_labeled','train_unlabeled']:

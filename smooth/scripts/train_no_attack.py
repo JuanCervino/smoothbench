@@ -144,10 +144,10 @@ def main(args, hparams, test_hparams):
                 timer.batch_start()
 
                 # Get the points for the Laplacian
-                cum = 0
+
                 while train_all_ldr_iter_counter * hparams['unlab_batch_size']  < 50000:
                     algorithm.optimizer.zero_grad()
-                    print('HEre')
+                    cum = 0
                     train_all_ldr_iter_counter = train_all_ldr_iter_counter+1
                     batch_unlab, _ = next(train_all_ldr_iter)
 
@@ -155,7 +155,7 @@ def main(args, hparams, test_hparams):
                                                       train_all_ldr_iter_counter*hparams['unlab_batch_size']+hparams['unlab_batch_size'],
                                                       1, dtype=int)].indices
 
-                    save_image(batch_unlab[0], 'img1.png')
+                    # save_image(batch_unlab[0], 'img1.png')
                     batch_idx_lap_knn = np.array(batch_idx_lap_knn).reshape((hparams['unlab_batch_size'], 10))
                     batch_idx_lap_knn = batch_idx_lap_knn [:, 0 : args.k]
 
@@ -165,25 +165,26 @@ def main(args, hparams, test_hparams):
                                                              1, dtype=int)[:,np.newaxis], batch_idx_lap_knn])
 
                     batch_idx_lap_knn = batch_idx_lap_knn.ravel()
-                    laplacian_dataloader = torch.utils.data.Subset(dataset_unlab.splits['train_all'], batch_idx_lap_knn)
+                    laplacian_dataloader = torch.utils.data.Subset(dataset_unlab.splits['train_all'],
+                                                                   batch_idx_lap_knn)
                     laplacian_ldr = torch.utils.data.DataLoader(laplacian_dataloader,
                                                                 batch_size=args.k+1, shuffle=False,
                                                                 num_workers=12)
 
-                    algorithm.optimizer.zero_grad()
                     for batch_idx_lap, (imgs_lap, labels_lap) in enumerate(laplacian_ldr):
                         # central = imgs_lap[0][None]
                         # print(central.shape)
                         imgs_lap = imgs_lap.to(device)
                         cum += torch.sum(algorithm.predict(imgs_lap[0][None]) * (args.k * algorithm.predict(imgs_lap[0][None]) - algorithm.predict(imgs_lap[1::]).sum(dim=0)  ))
 
-
-
+                    # We need to take gradients because the memory explotes
                     cum = cum / torch.abs(cum)
+                    print('here',train_all_ldr_iter_counter)
+
                     cum.backward()
                     algorithm.optimizer.step()
+                    algorithm.optimizer.zero_grad()
 
-                print(cum)
                 # Take CEL step
                 # imgs_unlab = imgs_unlab.to(device)
                 imgs, labels = imgs.to(device), labels.to(device)
@@ -197,7 +198,8 @@ def main(args, hparams, test_hparams):
                     for name, meter in algorithm.meters.items():
                         print(f'{name}: {meter.val:.3f} (avg. {meter.avg:.3f})\t', end='')
                     print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
-                train_all_ldr_iter_counter = train_all_ldr_iter_counter + 1
+
+                # train_all_ldr_iter_counter = train_all_ldr_iter_counter + 1
                 # if train_all_ldr_iter_counter*args.unlab_batch_size >=50000:
                 #     train_all_ldr_iter_counter = 0
                 #     train_all_ldr_iter = iter(train_all_ldr_iter)

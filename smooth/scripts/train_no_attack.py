@@ -146,6 +146,7 @@ def main(args, hparams, test_hparams):
                 # Get the points for the Laplacian
                 cum = 0
                 while train_all_ldr_iter_counter * hparams['unlab_batch_size']  < 50000:
+                    algorithm.optimizer.zero_grad()
                     print('HEre')
                     train_all_ldr_iter_counter = train_all_ldr_iter_counter+1
                     batch_unlab, _ = next(train_all_ldr_iter)
@@ -175,14 +176,13 @@ def main(args, hparams, test_hparams):
                         # print(central.shape)
                         imgs_lap = imgs_lap.to(device)
                         cum += torch.sum(algorithm.predict(imgs_lap[0][None]) * (args.k * algorithm.predict(imgs_lap[0][None]) - algorithm.predict(imgs_lap[1::]).sum(dim=0)  ))
-                print('out')
-                print(train_all_ldr_iter_counter,cum)
 
-                # cum = args.regularizer * cum
 
-                cum = cum / torch.abs(cum)
-                cum.backward()
-                algorithm.optimizer.step()
+
+                    cum = cum / torch.abs(cum)
+                    cum.backward()
+                    algorithm.optimizer.step()
+
                 print(cum)
                 # Take CEL step
                 # imgs_unlab = imgs_unlab.to(device)

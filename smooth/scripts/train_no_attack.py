@@ -145,7 +145,7 @@ def main(args, hparams, test_hparams):
 
                 # Get the points for the Laplacian
 
-                while train_all_ldr_iter_counter * hparams['unlab_batch_size']  < 50000:
+                while train_all_ldr_iter_counter * hparams['unlab_batch_size'] + hparams['unlab_batch_size'] < 50000:
                     algorithm.optimizer.zero_grad()
                     cum = 0
                     train_all_ldr_iter_counter = train_all_ldr_iter_counter+1
@@ -179,7 +179,7 @@ def main(args, hparams, test_hparams):
 
                     # We need to take gradients because the memory explotes
                     cum = cum / torch.abs(cum)
-                    print('here',train_all_ldr_iter_counter)
+                    print('here',train_all_ldr_iter_counter, cum)
 
                     cum.backward()
                     algorithm.optimizer.step()

@@ -181,8 +181,8 @@ def main(args, hparams, test_hparams):
 
                         # We need to take gradients because the memory explotes
 
-                        print('here',train_all_ldr_iter_counter, cum)
-
+                        print('here',train_all_ldr_iter_counter, cum, cum * args.regularizer)
+                        cum = args.regularizer * cum
                         cum.backward()
                         algorithm.optimizer.step()
                         algorithm.optimizer.zero_grad()

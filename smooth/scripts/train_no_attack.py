@@ -132,7 +132,6 @@ def main(args, hparams, test_hparams):
                 dataset_unlab = vars(datasets)[args.dataset](args.data_dir, 1, transform=args.unlab_augmentation != 1)
                 _, train_unl_ldr, train_all_ldr, test_ldr = datasets.to_loaders(dataset_unlab, hparams)
             train_all_ldr_iter = iter (train_all_ldr)
-            print('HERERE')
             train_all_ldr_iter_counter = 0
             # dataset_unlab = dataset_unlab.splits['train_all']
 
@@ -144,46 +143,49 @@ def main(args, hparams, test_hparams):
                 timer.batch_start()
 
                 # Get the points for the Laplacian
+                if epoch % 10 == 0:
+                    while train_all_ldr_iter_counter * hparams['unlab_batch_size'] + hparams['unlab_batch_size'] < 50000:
+                        algorithm.optimizer.zero_grad()
+                        cum = 0
+                        train_all_ldr_iter_counter = train_all_ldr_iter_counter+1
+                        batch_unlab, _ = next(train_all_ldr_iter)
 
-                while train_all_ldr_iter_counter * hparams['unlab_batch_size'] + hparams['unlab_batch_size'] < 50000:
-                    algorithm.optimizer.zero_grad()
-                    cum = 0
-                    train_all_ldr_iter_counter = train_all_ldr_iter_counter+1
-                    batch_unlab, _ = next(train_all_ldr_iter)
+                        batch_idx_lap_knn = knn[np.arange(train_all_ldr_iter_counter*hparams['unlab_batch_size'],
+                                                          train_all_ldr_iter_counter*hparams['unlab_batch_size']+hparams['unlab_batch_size'],
+                                                          1, dtype=int)].indices
 
-                    batch_idx_lap_knn = knn[np.arange(train_all_ldr_iter_counter*hparams['unlab_batch_size'],
-                                                      train_all_ldr_iter_counter*hparams['unlab_batch_size']+hparams['unlab_batch_size'],
-                                                      1, dtype=int)].indices
+                        # save_image(batch_unlab[0], 'img1.png')
+                        batch_idx_lap_knn = np.array(batch_idx_lap_knn).reshape((hparams['unlab_batch_size'], 10))
+                        batch_idx_lap_knn = batch_idx_lap_knn [:, 0 : args.k]
 
-                    # save_image(batch_unlab[0], 'img1.png')
-                    batch_idx_lap_knn = np.array(batch_idx_lap_knn).reshape((hparams['unlab_batch_size'], 10))
-                    batch_idx_lap_knn = batch_idx_lap_knn [:, 0 : args.k]
+                        batch_idx_lap_knn = np.hstack([np.arange(train_all_ldr_iter_counter * hparams['unlab_batch_size'],
+                                                                 train_all_ldr_iter_counter * hparams['unlab_batch_size'] +
+                                                                 hparams['unlab_batch_size'],
+                                                                 1, dtype=int)[:,np.newaxis], batch_idx_lap_knn])
 
-                    batch_idx_lap_knn = np.hstack([np.arange(train_all_ldr_iter_counter * hparams['unlab_batch_size'],
-                                                             train_all_ldr_iter_counter * hparams['unlab_batch_size'] +
-                                                             hparams['unlab_batch_size'],
-                                                             1, dtype=int)[:,np.newaxis], batch_idx_lap_knn])
+                        batch_idx_lap_knn = batch_idx_lap_knn.ravel()
+                        laplacian_dataloader = torch.utils.data.Subset(dataset_unlab.splits['train_all'],
+                                                                       batch_idx_lap_knn)
+                        laplacian_ldr = torch.utils.data.DataLoader(laplacian_dataloader,
+                                                                    batch_size=args.k+1, shuffle=False,
+                                                                    num_workers=12)
 
-                    batch_idx_lap_knn = batch_idx_lap_knn.ravel()
-                    laplacian_dataloader = torch.utils.data.Subset(dataset_unlab.splits['train_all'],
-                                                                   batch_idx_lap_knn)
-                    laplacian_ldr = torch.utils.data.DataLoader(laplacian_dataloader,
-                                                                batch_size=args.k+1, shuffle=False,
-                                                                num_workers=12)
+                        for batch_idx_lap, (imgs_lap, labels_lap) in enumerate(laplacian_ldr):
+                            # central = imgs_lap[0][None]
+                            # print(central.shape)
+                            imgs_lap = imgs_lap.to(device)
+                            cum += torch.sum(torch.nn.functional.softmax(algorithm.predict(imgs_lap[0][None])) * (args.k * torch.nn.functional.softmax(algorithm.predict(imgs_lap[0][None]))
+                                                                                                                  - torch.nn.functional.softmax(algorithm.predict(imgs_lap[1::]).sum(dim=0))
+                                                                                                                  )
+                                             )
 
-                    for batch_idx_lap, (imgs_lap, labels_lap) in enumerate(laplacian_ldr):
-                        # central = imgs_lap[0][None]
-                        # print(central.shape)
-                        imgs_lap = imgs_lap.to(device)
-                        cum += torch.sum(algorithm.predict(imgs_lap[0][None]) * (args.k * algorithm.predict(imgs_lap[0][None]) - algorithm.predict(imgs_lap[1::]).sum(dim=0)  ))
+                        # We need to take gradients because the memory explotes
 
-                    # We need to take gradients because the memory explotes
-                    cum = cum / torch.abs(cum)
-                    print('here',train_all_ldr_iter_counter, cum)
+                        print('here',train_all_ldr_iter_counter, cum)
 
-                    cum.backward()
-                    algorithm.optimizer.step()
-                    algorithm.optimizer.zero_grad()
+                        cum.backward()
+                        algorithm.optimizer.step()
+                        algorithm.optimizer.zero_grad()
 
                 # Take CEL step
                 # imgs_unlab = imgs_unlab.to(device)

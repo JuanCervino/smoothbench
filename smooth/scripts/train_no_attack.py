@@ -143,7 +143,7 @@ def main(args, hparams, test_hparams):
                 timer.batch_start()
 
                 # Get the points for the Laplacian
-                if epoch % 10 == 0:
+                if epoch % 20 == 0:
                     while train_all_ldr_iter_counter * hparams['unlab_batch_size'] + hparams['unlab_batch_size'] < 50000:
                         algorithm.optimizer.zero_grad()
                         cum = 0

@@ -324,7 +324,7 @@ def main(args, hparams, test_hparams):
         test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
 
-        class_wise = True # To do deal with this
+        class_wise = args.class_wise # To do deal with this
         if class_wise:
             test_clean_classwise_acc = misc.class_wise_accuracy(algorithm, test_ldr, device)
             add_results_row([epoch, test_clean_classwise_acc, 'ERM', 'Test'])
@@ -382,6 +382,8 @@ if __name__ == '__main__':
     parser.add_argument('--hparams_seed', type=int, default=0, help='Seed for hyperparameters')
     parser.add_argument('--trial_seed', type=int, default=0, help='Trial number')
     parser.add_argument('--seed', type=int, default=0, help='Seed for everything else')
+    parser.add_argument('--class_wise', type=bool, default=False, help='compute the class wise accuracy')
+
 
     # Juan added this
     parser.add_argument('--normalize', type=bool, default=False, help='Normalize the Laplacian')

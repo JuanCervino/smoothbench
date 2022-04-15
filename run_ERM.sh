@@ -1,6 +1,12 @@
-#python -m smooth.scripts.train_no_attack --dataset STL10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 1  --class_wise True
-python -m smooth.scripts.train_no_attack --dataset CIFAR100coarse --algorithm ERM --output_dir train-output --normalize True --per_labeled 1  --class_wise True
+python -m smooth.scripts.train_no_attack --dataset STL10 --algorithm ERM --output_dir train-output  --per_labeled 1  --class_wise True
+python -m smooth.scripts.train_no_attack --dataset STL10 --algorithm ERM --output_dir train-output  --per_labeled 1  --class_wise True
 
+python -m smooth.scripts.train_no_attack --dataset CIFAR100coarse --algorithm ERM --output_dir train-output --per_labeled 1  --class_wise True
+python -m smooth.scripts.train_no_attack --dataset CIFAR100coarse --algorithm ERM --output_dir train-output --per_labeled 1  --class_wise True
+
+
+python -m smooth.scripts.train_no_attack --dataset CIFAR100 --algorithm ERM --output_dir train-output --per_labeled 1  --class_wise True
+python -m smooth.scripts.train_no_attack --dataset CIFAR100 --algorithm ERM --output_dir train-output --per_labeled 1  --class_wise True
 
 # 
 #python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM_AVG_LIP --output_dir train-output --per_labeled 0.1  --normalize False --regularizer 0.1 --heat_kernel_t 10.55

@@ -324,7 +324,7 @@ def main(args, hparams, test_hparams):
         test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
 
-        class_wise = False # To do deal with this
+        class_wise = True # To do deal with this
         if class_wise:
             test_clean_classwise_acc = misc.class_wise_accuracy(algorithm, test_ldr, device)
             add_results_row([epoch, test_clean_classwise_acc, 'ERM', 'Test'])

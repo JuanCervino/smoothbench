@@ -47,12 +47,11 @@ def get_laplacian(imgs, normalize = False, heat_kernel_t = 10):
     Returns:
         pairwise distance: (batch_size, num_points, num_points)
     """
-
     adj_matrix = get_pairwise_distance_matrix(imgs, heat_kernel_t)
     if normalize:
         D = torch.sum(adj_matrix, axis=1)  # (batch_size,num_points)
-        eye = torch.eye(adj_matrix.size[0])
-        D = 1 / torch.sqrt(D)
+        eye = torch.eye(adj_matrix.size()[0]).to('cuda') # Juan Modified This
+        D = torch.diag(1 / torch.sqrt(D))
         L = eye - torch.matmul(torch.matmul(D, adj_matrix), D)
     else:
         D = torch.sum(adj_matrix, axis=1)  # (batch_size,num_points)

@@ -42,21 +42,29 @@ def accuracy(algorithm, loader, device):
 
 
 @torch.no_grad()
-def class_wise_accuracy(algorithm, loader, device):
-    correct_hist = torch.zeros(10).to(device)
-    label_hist = torch.zeros(10).to(device)
+def class_wise_accuracy(algorithm, loader, device, dataset):
+    assert dataset in ['MNIST','CIFAR10','CIFAR100','STL10','CIFAR100coarse']
+    if dataset in ['MNIST','CIFAR10','STL10']:
+        n_classes = 10
+    elif dataset == 'CIFAR100':
+        n_classes = 100
+    elif dataset == 'CIFAR100coarse':
+        n_classes = 20
+
+    correct_hist = torch.zeros(n_classes).to(device)
+    label_hist = torch.zeros(n_classes).to(device)
 
     algorithm.eval()
     for imgs, labels in loader:
         imgs, labels = imgs.to(device), labels.to(device)
         output = algorithm.predict(imgs)
 
-        label_hist += torch.histc(labels, 10, max=10)
+        label_hist += torch.histc(labels, n_classes, max=n_classes)
         output = algorithm.predict(imgs)
         pred = output.argmax(dim=1, keepdim=True)
         correct_index = pred.eq(labels.view_as(pred)).squeeze()
         label_correct = labels[correct_index]
-        correct_hist += torch.histc(label_correct, 10, max=10)
+        correct_hist += torch.histc(label_correct, n_classes, max=n_classes)
     correct_rate_hist = correct_hist / label_hist
     algorithm.train()
 

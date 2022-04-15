@@ -1,13 +1,6 @@
-# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 0.1
-# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 0.2
-# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 0.3
-# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 0.4
-# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 0.5
-# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 0.6
-# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 0.7
-# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 0.8
-# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 0.9
-# python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 1
+#python -m smooth.scripts.train_no_attack --dataset STL10 --algorithm ERM --output_dir train-output --normalize True --per_labeled 1  --class_wise True
+python -m smooth.scripts.train_no_attack --dataset CIFAR100coarse --algorithm ERM --output_dir train-output --normalize True --per_labeled 1  --class_wise True
+
 
 # 
 #python -m smooth.scripts.train_no_attack --dataset CIFAR10 --algorithm ERM_AVG_LIP --output_dir train-output --per_labeled 0.1  --normalize False --regularizer 0.1 --heat_kernel_t 10.55
@@ -48,30 +41,30 @@
 #			  --k 5 --normalize True --regularizer 1 --heat_kernel_t 10.5 --unlab_augmentation 5\
 #			  --per_labeled 0.001 --unlab_batch_size 10
 
-python -m smooth.scripts.train_no_attack\
-			--dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output2\
-			 --precalculated_folder knn-baselines2/resnet184_None_cosine_similarity_2022-0401-190338\
-			  --k 1 --normalize True --regularizer 0.001 --heat_kernel_t 10.5 --unlab_augmentation 5\
-			  --per_labeled 0.001 --unlab_batch_size 1
-
-python -m smooth.scripts.train_no_attack\
-			--dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output2\
-			 --precalculated_folder knn-baselines2/resnet184_None_cosine_similarity_2022-0401-190338\
-			  --k 3 --normalize True --regularizer 0.001 --heat_kernel_t 10.5 --unlab_augmentation 5\
-			  --per_labeled 0.001 --unlab_batch_size 1
-
-
-python -m smooth.scripts.train_no_attack\
-			--dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output2\
-			 --precalculated_folder knn-baselines2/resnet184_None_cosine_similarity_2022-0401-190338\
-			  --k 5 --normalize True --regularizer 0.001 --heat_kernel_t 10.5 --unlab_augmentation 5\
-			  --per_labeled 0.001 --unlab_batch_size 1
-
-python -m smooth.scripts.train_no_attack\
-			--dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output2\
-			 --precalculated_folder knn-baselines2/resnet184_None_cosine_similarity_2022-0401-190338\
-			  --k 9 --normalize True --regularizer 0.001 --heat_kernel_t 10.5 --unlab_augmentation 5\
-			  --per_labeled 0.001 --unlab_batch_size 1
+#python -m smooth.scripts.train_no_attack\
+#			--dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output2\
+#			 --precalculated_folder knn-baselines2/resnet184_None_cosine_similarity_2022-0401-190338\
+#			  --k 1 --normalize True --regularizer 0.001 --heat_kernel_t 10.5 --unlab_augmentation 5\
+#			  --per_labeled 0.001 --unlab_batch_size 1
+#
+#python -m smooth.scripts.train_no_attack\
+#			--dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output2\
+#			 --precalculated_folder knn-baselines2/resnet184_None_cosine_similarity_2022-0401-190338\
+#			  --k 3 --normalize True --regularizer 0.001 --heat_kernel_t 10.5 --unlab_augmentation 5\
+#			  --per_labeled 0.001 --unlab_batch_size 1
+#
+#
+#python -m smooth.scripts.train_no_attack\
+#			--dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output2\
+#			 --precalculated_folder knn-baselines2/resnet184_None_cosine_similarity_2022-0401-190338\
+#			  --k 5 --normalize True --regularizer 0.001 --heat_kernel_t 10.5 --unlab_augmentation 5\
+#			  --per_labeled 0.001 --unlab_batch_size 1
+#
+#python -m smooth.scripts.train_no_attack\
+#			--dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN --output_dir train-output2\
+#			 --precalculated_folder knn-baselines2/resnet184_None_cosine_similarity_2022-0401-190338\
+#			  --k 9 --normalize True --regularizer 0.001 --heat_kernel_t 10.5 --unlab_augmentation 5\
+#			  --per_labeled 0.001 --unlab_batch_size 1
 
 # python -m smooth.scripts.train_no_attack\
 # 			--dataset CIFAR10 --algorithm ERM_AVG_LIP_KNN_AUG --output_dir train-output\

@@ -326,7 +326,7 @@ def main(args, hparams, test_hparams):
 
         class_wise = args.class_wise # To do deal with this
         if class_wise:
-            test_clean_classwise_acc = misc.class_wise_accuracy(algorithm, test_ldr, device)
+            test_clean_classwise_acc = misc.class_wise_accuracy(algorithm, test_ldr, device, args.dataset)
             add_results_row([epoch, test_clean_classwise_acc, 'ERM', 'Test'])
 
         # # save adversarial accuracies on validation/test sets

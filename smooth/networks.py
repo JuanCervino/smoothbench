@@ -9,8 +9,8 @@ def Classifier(input_shape, num_classes, hparams):
         # return SmallCNN()
         return MNISTNet(input_shape, num_classes)
     elif input_shape[0] == 3:
-        # return models.resnet18(num_classes=num_classes)
-        return ResNet18()
+        return models.resnet18(num_classes=num_classes)
+        # return ResNet18()
     else:
         assert False
 

@@ -43,3 +43,17 @@ def save_output(X_lab,y_lab,X_unlab,y_unlab,dir):
     plt.close()
     pickle.dump([X_lab,y_lab,X_unlab,y_unlab], open(dir + "/output.p", "wb"))
     pass
+
+def save_lambdas(X_lab,y_lab,X_unlab,y_unlab,dir,lambdas):
+    colors = np.array(
+        ["#377eb8","#ff7f00","#4daf4a"]
+    )
+    # plt.figure()
+    plt.scatter(X_lab[:, 0], X_lab[:, 1], s=30, color=colors[y_lab])
+    plt.scatter(X_unlab[:, 0], X_unlab[:, 1], s=lambdas, color=colors[y_unlab])
+    plt.grid(True)
+    plt.axis('equal')
+    plt.savefig(dir+'/lambdas.pdf')
+    plt.close()
+    pickle.dump([X_lab,y_lab,X_unlab,y_unlab,lambdas], open(dir + "/lambdas.p", "wb"))
+    pass

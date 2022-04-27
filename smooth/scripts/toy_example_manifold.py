@@ -36,6 +36,7 @@ from smooth.lib import toyexample
 import torchvision.models as models
 import torchvision.transforms as transforms
 import sklearn
+import sklearn.manifold as sk_manifold
 import lpips
 import torch.optim as optim
 
@@ -164,7 +165,7 @@ def main(args):
         toyexample.save_output(X_lab.cpu().detach().numpy(), out_lab_np,
                                 X_unlab.cpu().detach().numpy(), out_unlab_np, args.output_dir)
 
-    if args.algorithm == 'LAPLACIAN_KNN_REGULARIZATION':
+    if args.algorithm == 'MANIFOLD_GRADIENT':
 
         columns = ['Epoch', 'Loss CE','Regularized Laplacian Loss', 'Laplacian Loss', 'Accuracy']
         utils.create_csv(args.output_dir, 'losses.csv', columns)
@@ -177,21 +178,58 @@ def main(args):
         unlab_dataloader = DataLoader(unlab_dataset)
 
 
+
+        adj_matrix = torch.cdist(X_unlab, X_unlab)
+        L = laplacian.get_laplacian(X_unlab,  True, heat_kernel_t=args.heat_kernel_t, clamp_value = 0.001).to(device)
+        e, V = np.linalg.eig(L.cpu().detach().numpy())
+        print('Connected Components', np.sum(e < 0.0001))
+
+        lambda_dual = torch.ones(len(y_unlab)) / len(y_unlab)
+        lambda_dual = lambda_dual.to(device).detach().requires_grad_(False)
+        mu_dual = torch.Tensor(1).to(device).detach().requires_grad_(False)
+        rho_primal = torch.Tensor(1).to(device).detach().requires_grad_(False)
+
         for epoch in range(args.epochs):
+            ############################################
+            # Primal Update
+            ############################################
             optimizer.zero_grad()
-            # print(y_lab)
-            loss = F.cross_entropy(net(X_lab), y_lab)
+            loss = mu_dual * F.cross_entropy(net(X_lab), y_lab)
             loss_cel = loss
-            # print(loss)
             f = F.softmax(net(X_unlab))
-            loss += args.regularizer * torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))
+            loss += args.regularizer * torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f)))
 
             # print(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))
+            print("here loss",loss)
             loss.backward()
+
             optimizer.step()
             acc = accuracy(net,unlab_dataloader,'cuda')
-            utils.save_state(args.output_dir, epoch, loss_cel.item(),args.regularizer * torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))).item() ,torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))).item(),acc , filename = 'losses.csv')
+            utils.save_state(args.output_dir, epoch, loss_cel.item(),args.regularizer * torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f))).item() ,torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))).item(),acc , filename = 'losses.csv')
             print(epoch,loss_cel.item(), torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))).item(),(args.regularizer*torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))).item(),acc)
+            ############################################
+            # Now update rho
+            ############################################
+            with torch.no_grad():
+                rho_primal = torch.nn.functional.relu(rho_primal - args.rho_step * (1 - torch.sum(lambda_dual)))
+
+            ############################################
+            # Dual Update
+            ############################################
+            with torch.no_grad():
+                mu_dual = torch.nn.functional.relu(mu_dual + args.dual_step_mu * (F.cross_entropy(net(X_lab), y_lab) - args.epsilon))
+                f_prime = F.softmax(net(X_unlab))
+                f_matrix= []
+                f_matrix.append([])
+                f_matrix [0] = torch.cat([f_prime[:,0]] * f_prime.shape[0]).reshape((f_prime.shape[0], f_prime.shape[0]))
+                f_matrix.append([])
+                f_matrix[1] = torch.cat([f_prime[:,1]] * f_prime.shape[0]).reshape((f_prime.shape[0], f_prime.shape[0]))
+
+                numerator = torch.abs (f_matrix [0] - f_matrix[0].transpose(0,1)) + torch.abs(f_matrix [1] - f_matrix[1].transpose(0,1)).to(device)
+                division = torch.div(numerator, (adj_matrix + torch.eye(f_prime.shape[0]).to(device)))
+                [grads,indices] = torch.max(division, 1)
+                grads = grads.pow(2)
+                lambda_dual = F.relu(lambda_dual + args.dual_step_mu*(grads-rho_primal))
 
 
         out_lab = net(X_lab).argmax(dim=1, keepdim=True)
@@ -213,7 +251,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default='two_moons')
     parser.add_argument('--n_dim', type=int, default=2, help='Dimension')
     parser.add_argument('--n_train', type=int, default=1)
-    parser.add_argument('--n_unlab', type=int, default=100)
+    parser.add_argument('--n_unlab', type=int, default=100, help='Number of samples per class')
     parser.add_argument('--n_test', type=int, default=10)
 
     parser.add_argument('--algorithm', type=str, default='ERM')
@@ -227,7 +265,10 @@ if __name__ == '__main__':
     parser.add_argument('--momentum', type=float, default=0.)
     parser.add_argument('--weight_decay', type=float, default=0.9)
 
-
+    parser.add_argument('--dual_step_mu', type=float, default=0.1)
+    parser.add_argument('--dual_step_lambda', type=float, default=0.1)
+    parser.add_argument('--rho_step', type=float, default=0.1)
+    parser.add_argument('--epsilon', type=float, default=0.01)
 
     args = parser.parse_args()
 

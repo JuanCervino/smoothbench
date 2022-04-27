@@ -38,7 +38,7 @@ def get_pairwise_distance_matrix(tensor, t):
 
     return adj_matrix
 
-def get_laplacian(imgs, normalize = False, heat_kernel_t = 10):
+def get_laplacian(imgs, normalize = False, heat_kernel_t = 10, clamp_value=None):
     """Compute pairwise distance of a point cloud.
 
     Args:
@@ -48,6 +48,11 @@ def get_laplacian(imgs, normalize = False, heat_kernel_t = 10):
         pairwise distance: (batch_size, num_points, num_points)
     """
     adj_matrix = get_pairwise_distance_matrix(imgs, heat_kernel_t)
+    # Remove small values
+    if clamp_value!=None:
+        zero_tensor = torch.zeros(adj_matrix.size()).to('cuda')
+        adj_matrix = torch.where(adj_matrix > clamp_value, adj_matrix, zero_tensor)
+
     if normalize:
         D = torch.sum(adj_matrix, axis=1)  # (batch_size,num_points)
         eye = torch.eye(adj_matrix.size()[0]).to('cuda') # Juan Modified This

@@ -73,7 +73,7 @@ def main(args):
 
 
     # Create Dataset
-    [X_lab,y_lab,X_unlab,y_unlab] = toyexample.create_dataset (args.dataset, args.n_dim, args.n_train, args.n_unlab, args.n_test, args.noise)
+    [X_lab,y_lab,X_unlab,y_unlab] = toyexample.create_dataset (args.dataset, args.n_dim, args.n_train, args.n_unlab, args.n_test, args.noise, args.data_dir)
     toyexample.save_dataset(X_lab,y_lab,X_unlab,y_unlab, args.output_dir)
 
     # Create NN
@@ -109,6 +109,19 @@ def main(args):
             acc = accuracy(net,unlab_dataloader,'cuda')
             utils.save_state(args.output_dir, epoch, loss.item(),acc , filename = 'losses.csv')
 
+            if epoch%100 == 0:
+                out_lab = net(X_lab).argmax(dim=1, keepdim=True)
+                out_unlab = net(X_unlab).argmax(dim=1, keepdim=True)
+
+                out_lab_np = out_lab.cpu().detach().numpy()
+                out_lab_np = out_lab_np.squeeze()
+                out_unlab_np = out_unlab.cpu().detach().numpy()
+                out_unlab_np = out_unlab_np.squeeze()
+
+                # toyexample.save_output_allspace(net, args.output_dir,epoch)
+                toyexample.save_output_allspace(net,X_lab.cpu().detach().numpy(), out_lab_np,
+                                        X_unlab.cpu().detach().numpy(), out_unlab_np, args.output_dir,epoch)
+
         out_lab = net(X_lab).argmax(dim=1, keepdim=True)
         out_unlab = net(X_unlab).argmax(dim=1, keepdim=True)
 
@@ -116,8 +129,10 @@ def main(args):
         out_lab_np = out_lab_np.squeeze()
         out_unlab_np = out_unlab.cpu().detach().numpy()
         out_unlab_np = out_unlab_np.squeeze()
+
         toyexample.save_output(X_lab.cpu().detach().numpy(), out_lab_np,
                                 X_unlab.cpu().detach().numpy(), out_unlab_np, args.output_dir)
+
         print('Final Accuracy', accuracy(net, unlab_dataloader, 'cuda') )
     if args.algorithm == 'LAPLACIAN_REGULARIZATION':
 
@@ -387,6 +402,7 @@ if __name__ == '__main__':
     parser.add_argument('--n_unlab', type=int, default=100, help='Number of samples per class')
     parser.add_argument('--n_test', type=int, default=10)
     parser.add_argument('--noise', type=float, default=0.05)
+    parser.add_argument('--data_dir', type=str, default='./smooth/data')
 
 
     parser.add_argument('--algorithm', type=str, default='ERM')

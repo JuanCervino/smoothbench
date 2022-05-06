@@ -1,0 +1,1 @@
+python -m smooth.scripts.navigation_manifold  --algorithm ERM

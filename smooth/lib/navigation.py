@@ -28,10 +28,12 @@ def create_dataset(dataset, n_dim, n_train, n_unlab, width, data_dir):
         if dataset == 'window':
             goal = [19,1]
             start = [1,1]
-            intermediate_points = [[5,3],[10,5],[15,3]]
+            # intermediate_points = [[5,3],[10,5],[15,3]]
+            intermediate_points = [[5,3],[10,5]]
+
             total_time = 1
 
-            degree_poly = 11
+            degree_poly = 10
             first = np.linspace(0,degree_poly,degree_poly+1)
             second = np.multiply(first[1:-1],first[2::])
             second = np.concatenate((np.zeros(2),second))
@@ -42,7 +44,7 @@ def create_dataset(dataset, n_dim, n_train, n_unlab, width, data_dir):
 
             P = np.outer(second,second)
             P = np.divide(P,div)
-            P = P + 0.001*np.eye(degree_poly+1)
+            P = P + 0.0001*np.eye(degree_poly+1)
             # Initial and final position with no velocity, and no acceleration
             eval_0 = np.concatenate((np.ones(1),np.zeros(degree_poly)))
             Ai = np.concatenate((eval_0,np.roll(eval_0,1),np.roll(eval_0, 2)))
@@ -52,8 +54,8 @@ def create_dataset(dataset, n_dim, n_train, n_unlab, width, data_dir):
 
             Af = np.concatenate((np.ones(degree_poly+1), first, second))
             Af = Af.reshape(3,degree_poly+1)
-            bfx = np.array([start[0],0,0])
-            bfy = np.array([start[1],0,0])
+            bfx = np.array([goal[0],0,0])
+            bfy = np.array([goal[1],0,0])
 
             # Intermediate Points
             Ax = np.array([])
@@ -79,13 +81,10 @@ def create_dataset(dataset, n_dim, n_train, n_unlab, width, data_dir):
                                Ai @ y == biy,
                                Af @ y == bfy])
             prob.solve()
-            print('============')
-            print(x.value)
-            print(Ax@x.value,bx)
-            print('================')
-            labeled_times = np.linspace(0,1,20)
+
+            labeled_times = np.linspace(0,1,200)
             labeled_poly = [get_poly_vector(t,degree_poly) for t in labeled_times]
-            print(labeled_poly)
+            print(labeled_poly, x.value)
             labeled_points_x = [ x.value @ poly for poly in labeled_poly]
             labeled_points_y = [ y.value @ poly for poly in labeled_poly]
             X_lab = [labeled_points_x,labeled_points_y]

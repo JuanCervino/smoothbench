@@ -40,6 +40,8 @@ import sklearn.manifold as sk_manifold
 import lpips
 import torch.optim as optim
 
+
+
 @torch.no_grad()
 def accuracy(net, loader, device):
     correct, total = 0, 0
@@ -75,6 +77,16 @@ def main(args):
     # Create Dataset
     [X_lab,y_lab,X_unlab,y_unlab] = navigation.create_dataset (args.dataset, args.n_dim, args.n_train, args.n_unlab, args.width, args.data_dir)
     # toyexample.save_dataset(X_lab,y_lab,X_unlab,y_unlab, args.output_dir)
+    print(X_lab[0])
+    plt.plot(X_lab[0],X_lab[1],'.-')
+    goal = [19, 1]
+    start = [1, 1]
+    intermediate_points = [[5, 3], [10, 5]]
+    plt.plot(goal[0],goal[1],'r*')
+    plt.plot(start[0],start[1],'g*')
+    plt.plot(np.array(intermediate_points)[:,0],np.array(intermediate_points)[:,1],'bo')
+
+    plt.show()
     print(X_lab)
     # Create NN
     net = FCNN().to(device)

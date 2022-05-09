@@ -1,1 +1,1 @@
-python -m smooth.scripts.navigation_manifold  --algorithm ERM
+python -m smooth.scripts.navigation_manifold  --algorithm ERM --n_train 20 --epochs 26000 --n_unlab 20

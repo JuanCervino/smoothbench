@@ -1,1 +1,2 @@
-python -m smooth.scripts.navigation_manifold  --algorithm ERM --n_train 20 --epochs 26000 --n_unlab 20
+python -m smooth.scripts.navigation_manifold  --algorithm ERM --n_train 20 --epochs 3000 --n_unlab 100 --hidden_neurons 128\
+                                              --lr 0.00002 --weight_decay 0.95 --dataset Dijkstra_grid_window

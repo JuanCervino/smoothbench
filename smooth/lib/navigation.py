@@ -5,6 +5,14 @@ import pickle,os
 import scipy
 from matplotlib.patches import Rectangle
 
+# x_center,y_i,y_f
+def sample_out_maze(sample, width, tolerance):
+    out = True
+    if sample[0] < 5+width+tolerance and sample[0] > 5-width-tolerance and sample[1] > 3 - tolerance:
+        out = False
+    if sample[0] < 15+width+tolerance and sample[0] > 15-width-tolerance and sample[1] < 7 +tolerance:
+        out = False
+    return out
 
 def get_poly_vector(t,degree):
     vec = np.ones(degree+1)
@@ -125,9 +133,11 @@ def generate_trajectory(start, goal, intermediate_points, degree_poly, total_tim
     y_lab = np.column_stack((labeled_acc_x, labeled_acc_y))
     return X_lab,y_lab
 
-def create_dataset(dataset, n_dim, n_train, n_unlab, width, data_dir):
+# def generate_dijkstra():
 
-    assert dataset in ['window','center','Dijkstra_grid_window']
+def create_dataset(dataset, n_dim, n_train, n_unlab,  data_dir, width, resolution=0.4):
+
+    assert dataset in ['window','center','Dijkstra_grid_window','Dijkstra_grid_maze']
     file_name = '/'+dataset+'_train'+str(n_train)+'_unlab'+str(n_unlab)+'_noise'+str(width)+'.p'
 
     total_time = 4
@@ -467,19 +477,26 @@ def create_dataset(dataset, n_dim, n_train, n_unlab, width, data_dir):
         elif dataset == 'Dijkstra_grid_window':
 
             # Construct graph
-            weights = np.array([20,10]) # Max x, max y, max x_dot, max y_dot
             x = np.linspace(0, 20, 2*n_train-1)
             y = np.linspace(0, 10, n_train)
             # full coorindate arrays
             xx, yy = np.meshgrid(x, y)
             graph = np.column_stack((xx.flatten(),yy.flatten()))
-            graph = np.vstack((graph,np.array([19,1])))
+
+            # Add Start And Stop
+            start = np.array([8,1])
+            stop = np.array([19,1])
+            graph = np.vstack((start,graph,stop))
+
             list_of_delete = []
-            print(graph.shape)
+            # print(graph.shape)
 
             for sample in range(graph.shape[0]):
-               if not ((graph[sample,0] < 10-width or graph[sample,0]  > 10 + width) or (graph[sample,1] >4 and graph[sample,1] <6)):
-                   list_of_delete = list_of_delete + [sample]
+                if not ((graph[sample, 0] < 10 - (width + resolution) or graph[sample, 0] > 10 + (
+                        width + resolution)) or (
+                                graph[sample, 1] > (4 + resolution) and graph[sample, 1] < (6 - resolution))):
+                    list_of_delete = list_of_delete + [sample]
+
 
             graph = np.delete(graph,list_of_delete,axis=0)
             matrix_graph = scipy.spatial.distance.cdist(graph,graph)
@@ -487,7 +504,9 @@ def create_dataset(dataset, n_dim, n_train, n_unlab, width, data_dir):
             # matrix_graph = np.where(matrix_graph > 2.5, 0, matrix_graph)
 
             matrix_graph_sparse = scipy.sparse.csr_matrix(matrix_graph)
-            dist_matrix, predecessors = scipy.sparse.csgraph.dijkstra(csgraph=matrix_graph_sparse, directed=False, indices=0, return_predecessors=True)
+            _, predecessors = scipy.sparse.csgraph.dijkstra(csgraph=matrix_graph_sparse, directed=False, indices=0, return_predecessors=True)
+            adj_matrix, _ = scipy.sparse.csgraph.dijkstra(csgraph=matrix_graph_sparse, directed=False, return_predecessors=True)
+
             cx = scipy.sparse.coo_matrix(matrix_graph_sparse)
             fig, ax = plt.subplots()
             ax.add_patch(Rectangle((10 - width, 0), 2 * width, 4,
@@ -518,11 +537,10 @@ def create_dataset(dataset, n_dim, n_train, n_unlab, width, data_dir):
             plt.plot(graph[0,0],graph[0,1],'r*')
             plt.plot(graph[-1,0],graph[-1,1],'ro')
 
-
             # plt.show()
-            X_lab = np.array(graph[path[:-1],:])
-            y_lab = np.array(graph[path[1:]]-graph[path[:-1]])/total_time
-            X_unlab = None
+            X_lab = np.array(graph[path[1:],:])
+            y_lab = np.array(graph[path[:-1]]-graph[path[1:]])/0.1
+            X_unlab = graph
             y_unlab = None
 
         elif dataset == 'Dijkstra_random_window':
@@ -565,9 +583,86 @@ def create_dataset(dataset, n_dim, n_train, n_unlab, width, data_dir):
 
            plt.show()
 
+        elif dataset == 'Dijkstra_grid_maze':
+
+            # Construct graph
+            x = np.linspace(0, 20, 2 * n_train - 1)
+            y = np.linspace(0, 10, n_train)
+            # full coorindate arrays
+            xx, yy = np.meshgrid(x, y)
+            graph_unlab = np.column_stack((xx.flatten(), yy.flatten()))
+            start_points = [[1, 9]]
+            stop = np.array([19, 1])
+            X_lab = []
+            # for start in start_points:
+                # Add Start And Stop
+            # print(start)
+            start = np.array([1, 9])
+            print(start)
+
+            graph = np.vstack((start, graph_unlab, stop))
+
+            list_of_delete = []
+            # print(graph.shape)
+
+            for sample in range(graph.shape[0]):
+               if not sample_out_maze(graph[sample,:],width,resolution):
+                   list_of_delete = list_of_delete + [sample]
 
 
-        return [X_lab, y_lab, X_unlab, y_unlab]
+            graph = np.delete(graph, list_of_delete, axis=0)
+            matrix_graph = scipy.spatial.distance.cdist(graph, graph)
+            matrix_graph= np.where(
+                matrix_graph> 0.01 + np.sqrt((10 / (n_train - 1)) ** 2 + (10 / (n_train - 1)) ** 2), 0, matrix_graph)
+            # matrix_graph = np.where(matrix_graph > 2.5, 0, matrix_graph)
+
+            matrix_graph= scipy.sparse.csr_matrix(matrix_graph)
+            _, predecessors = scipy.sparse.csgraph.dijkstra(csgraph=matrix_graph, directed=False, indices=0,
+                                                            return_predecessors=True)
+            adj_matrix, _ = scipy.sparse.csgraph.dijkstra(csgraph=matrix_graph, directed=False,
+                                                          return_predecessors=True)
+
+            cx = scipy.sparse.coo_matrix(matrix_graph)
+            fig, ax = plt.subplots()
+            ax.add_patch(Rectangle((5-width, 3), 2*width, 7,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
+
+            ax.add_patch(Rectangle((15-width, 0), 2*width, 7,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
+            for i, j, v in zip(cx.row, cx.col, cx.data):
+                arr = np.vstack((graph[i, :], graph[j, :]))
+                plt.plot(arr[:, 0], arr[:, 1], 'b-')
+            plt.plot(graph[:, 0], graph[:, 1], '*')
+
+            path = [len(predecessors) - 1]
+            item = predecessors[-1]
+            path = path + [item]
+            while item != 0:
+                item = predecessors[item]
+                path = path + [item]
+
+            plt.plot(graph[path, 0], graph[path, 1], 'r')
+
+            plt.plot(graph[0, 0], graph[0, 1], 'r*')
+            plt.plot(graph[-1, 0], graph[-1, 1], 'ro')
+
+        # plt.show()
+            if X_lab == []:
+                X_lab = np.array(graph[path[1:], :])
+                y_lab = np.array(graph[path[:-1]] - graph[path[1:]]) / 0.1
+            else:
+                X_lab = np.vstack((X_lab,np.array(graph[path[1:], :])))
+                y_lab = np.vstack((y_lab,np.array(graph[path[:-1]] - graph[path[1:]]) / 0.1 ))
+            X_unlab = graph_unlab
+            y_unlab = None
+
+        return [X_lab, y_lab, X_unlab, y_unlab], adj_matrix
 
 
 

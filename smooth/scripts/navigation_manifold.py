@@ -89,74 +89,151 @@ def main(args):
 
 
     # Create Dataset
-    [X_lab,y_lab,X_unlab,y_unlab] = navigation.create_dataset (args.dataset, args.n_dim, args.n_train, args.n_unlab, args.width, args.data_dir)
+    [X_lab,y_lab,X_unlab,y_unlab], adj_matrix = navigation.create_dataset (args.dataset, args.n_dim, args.n_train, args.n_unlab, args.data_dir, args.width, args.resolution)
     # toyexample.save_dataset(X_lab,y_lab,X_unlab,y_unlab, args.output_dir)
-    plot = False
+
+
+    plot = True
+    goal = [19,1]
     if plot:
-        start = [1, 1]
-        intermediate_points = [[10, 5]]
-        # Trajectories
-        fig, ax = plt.subplots()
-        plt.plot(X_lab[:,0],X_lab[:,1],'.')
+        if args.dataset in ['center','window']:
+            start = [1, 1]
+            intermediate_points = [[10, 5]]
+            # Trajectories
+            fig, ax = plt.subplots()
+            plt.plot(X_lab[:,0],X_lab[:,1],'.')
 
-        ax.plot(goal[0],goal[1],'r*')
-        ax.plot(start[0],start[1],'g*')
-        ax.plot(np.array(intermediate_points)[:,0],np.array(intermediate_points)[:,1],'bo')
-        ax.quiver(X_lab[:,0],X_lab[:,1],X_lab[:,2],X_lab[:,3],color="#0000ff") # Blue Velocity
-        ax.quiver(X_lab[:,0],X_lab[:,1],y_lab[:,0],y_lab[:,1],color="#ff0000") # Red Accelaration
-        ax.add_patch(Rectangle((10-args.width, 0), 2*args.width, 4,
-                               edgecolor='black',
-                               facecolor='black',
-                               fill=True,
-                               lw=5))
+            ax.plot(goal[0],goal[1],'r*')
+            ax.plot(start[0],start[1],'g*')
+            ax.plot(np.array(intermediate_points)[:,0],np.array(intermediate_points)[:,1],'bo')
+            ax.quiver(X_lab[:,0],X_lab[:,1],X_lab[:,2],X_lab[:,3],color="#0000ff") # Blue Velocity
+            ax.quiver(X_lab[:,0],X_lab[:,1],y_lab[:,0],y_lab[:,1],color="#ff0000") # Red Accelaration
+            ax.add_patch(Rectangle((10-args.width, 0), 2*args.width, 4,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
 
-        ax.add_patch(Rectangle((10-args.width, 6), 2*args.width, 4,
-                               edgecolor='black',
-                               facecolor='black',
-                               fill=True,
-                               lw=5))
-        plt.grid(True)
-        plt.xlim(0, 20)
-        plt.ylim(0, 10)
-        plt.savefig(args.output_dir+'/labeled_traj.pdf')
+            ax.add_patch(Rectangle((10-args.width, 6), 2*args.width, 4,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
+            plt.grid(True)
+            plt.xlim(0, 20)
+            plt.ylim(0, 10)
+            plt.savefig(args.output_dir+'/labeled_traj.pdf')
 
-        # Unlabeled Trajectory
-        fig, ax = plt.subplots()
-        plt.plot(X_lab[:,0],X_lab[:,1],'.')
+            # Unlabeled Trajectory
+            fig, ax = plt.subplots()
+            plt.plot(X_lab[:,0],X_lab[:,1],'.')
 
-        ax.plot(goal[0],goal[1],'r*')
-        ax.plot(start[0],start[1],'g*')
-        ax.plot(np.array(intermediate_points)[:,0],np.array(intermediate_points)[:,1],'bo')
-        ax.quiver(X_lab[:,0],X_lab[:,1],X_lab[:,2],X_lab[:,3],color="#0000ff") # Blue Velocity
-        ax.quiver(X_unlab[:,0],X_unlab[:,1],X_unlab[:,2],X_unlab[:,3],color="#0000ff") # Blue Velocity
-        ax.quiver(X_lab[:,0],X_lab[:,1],y_lab[:,0],y_lab[:,1],color="#ff0000") # Red Accelaration
-        ax.add_patch(Rectangle((10-args.width, 0), 2*args.width, 4,
-                               edgecolor='black',
-                               facecolor='black',
-                               fill=True,
-                               lw=5))
+            ax.plot(goal[0],goal[1],'r*')
+            ax.plot(start[0],start[1],'g*')
+            ax.plot(np.array(intermediate_points)[:,0],np.array(intermediate_points)[:,1],'bo')
+            ax.quiver(X_lab[:,0],X_lab[:,1],X_lab[:,2],X_lab[:,3],color="#0000ff") # Blue Velocity
+            ax.quiver(X_unlab[:,0],X_unlab[:,1],X_unlab[:,2],X_unlab[:,3],color="#0000ff") # Blue Velocity
+            ax.quiver(X_lab[:,0],X_lab[:,1],y_lab[:,0],y_lab[:,1],color="#ff0000") # Red Accelaration
+            ax.add_patch(Rectangle((10-args.width, 0), 2*args.width, 4,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
 
-        ax.add_patch(Rectangle((10-args.width, 6), 2*args.width, 4,
-                               edgecolor='black',
-                               facecolor='black',
-                               fill=True,
-                               lw=5))
-        plt.grid(True)
-        plt.xlim(0, 20)
-        plt.ylim(0, 10)
-        plt.savefig(args.output_dir+'/unlabeled_traj.pdf')
+            ax.add_patch(Rectangle((10-args.width, 6), 2*args.width, 4,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
+            plt.grid(True)
+            plt.xlim(0, 20)
+            plt.ylim(0, 10)
+            plt.savefig(args.output_dir+'/unlabeled_traj.pdf')
+        elif args.dataset in ['Dijkstra_grid_window','Dijkstra_random_window']:
+            plt.savefig(args.output_dir+'/grid.pdf')
+            fig, ax = plt.subplots()
+            ax.add_patch(Rectangle((10-args.width, 0), 2*args.width, 4,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
+
+            ax.add_patch(Rectangle((10-args.width, 6), 2*args.width, 4,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
+
+            plt.plot(X_unlab[:,0], X_unlab[:,1], '*')
+            plt.plot(X_lab[:,0], X_lab[:,1], 'r-*')
+            plt.savefig(args.output_dir+'/full_grid.pdf')
+
+            fig, ax = plt.subplots()
+            ax.add_patch(Rectangle((10-args.width, 0), 2*args.width, 4,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
+
+            ax.add_patch(Rectangle((10-args.width, 6), 2*args.width, 4,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
+
+            plt.plot(X_unlab[:,0], X_unlab[:,1], '*')
+            plt.plot(X_lab[:,0], X_lab[:,1], 'r*')
+
+            plt.quiver(X_lab[:,0], X_lab[:,1], y_lab[:,0], y_lab[:,1], color="#0000ff")
+            plt.savefig(args.output_dir+'/dataset.pdf')
+        elif args.dataset in ['Dijkstra_grid_maze']:
+            plt.savefig(args.output_dir+'/grid.pdf')
+            fig, ax = plt.subplots()
+            ax.add_patch(Rectangle((5-args.width, 3), 2*args.width, 7,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
+
+            ax.add_patch(Rectangle((15-args.width, 0), 2*args.width, 7,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
+
+            plt.plot(X_unlab[:,0], X_unlab[:,1], '*')
+            plt.plot(X_lab[:,0], X_lab[:,1], 'r-*')
+            plt.savefig(args.output_dir+'/full_grid.pdf')
+
+            fig, ax = plt.subplots()
+            ax.add_patch(Rectangle((5-args.width, 3), 2*args.width, 7,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
+
+            ax.add_patch(Rectangle((15-args.width, 0), 2*args.width, 7,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
+            plt.plot(X_unlab[:,0], X_unlab[:,1], '*')
+            plt.plot(X_lab[:,0], X_lab[:,1], 'r*')
+
+            plt.quiver(X_lab[:,0], X_lab[:,1], y_lab[:,0], y_lab[:,1], color="#0000ff")
+            plt.savefig(args.output_dir+'/dataset.pdf')
 
 
     # Load the data in Device
     X_lab, y_lab = torch.Tensor(X_lab).to(device), torch.Tensor(y_lab).type(torch.Tensor).to(device)
-    goal = [19, 1]
+    X_unlab = torch.Tensor(X_unlab).to(device)#, torch.Tensor(y_unlab).type(torch.Tensor).to(device)
 
     # Create NN
     if args.dataset in ['window','center']:
         # net = FCNN().to(device) # 1 layer
         net = FCNN2().to(device) # 2 layers
-    elif args.dataset in ['Dijkstra_grid_window','Dijkstra_random_window']:
-        net = FCNN(input_dim=2).to(device) # 1 layer
+    elif args.dataset in ['Dijkstra_grid_window','Dijkstra_random_window','Dijkstra_grid_maze',]:
+        net = FCNN2(input_dim=2, hidden_dim=[2048,64]).to(device) # 1 layer
 
 
     # Create the optimer
@@ -165,6 +242,9 @@ def main(args):
         lr=args.lr,
         momentum=args.momentum,
         weight_decay=args.weight_decay)
+
+    if args.dataset in ['Dijkstra_grid_window','Dijkstra_random_window','Dijkstra_grid_maze']:
+        scheduler =  torch.optim.lr_scheduler.StepLR(optimizer, step_size=70000, gamma=0.5)
     # Train
     if args.algorithm == 'ERM':
 
@@ -177,67 +257,116 @@ def main(args):
             loss = F.mse_loss(net(X_lab), y_lab)
             loss.backward()
             optimizer.step()
-            if epoch%500 == 0:
-                print(loss)
+            scheduler.step()
+            if epoch%1000 == 0:
+                print(epoch,loss)
             # acc = accuracy(net, unlab_dataloader, 'cuda')
             # utils.save_state(args.output_dir, epoch, loss.item(), acc, filename='losses.csv')
 
-        print(F.mse_loss(net(X_lab), y_lab))
-        # Evaluate in a couple of trajectories
-        # x, y, x_dot, y_dot
-        # initials = [[10,5,2,0],[10,5,2,0],[10,5,3,0],[10,5,4,0],[1,1,2,2],[1,1,4,4],[1,1,1,1],[1,1,0.5,0.5],[1,1,0.1,0.1],[1,1,0.01,0.01]]
-        initials = [[1,1]]
+    elif args.algorithm == 'LAPLACIAN_REGULARIZATION':
 
+        adj_matrix = torch.Tensor(adj_matrix).to(device)
+
+        L = laplacian.get_laplacian_from_adj(adj_matrix, args.normalize, heat_kernel_t=args.heat_kernel_t, clamp_value=0.01).to(device)
+        # zero = torch.zeros_like(L)
+        # L_smooth =  torch.where(L > 0, L, zero)
+        e, V = np.linalg.eig(L.cpu().detach().numpy())
+        print('Connected Components', np.sum(e < 0.0001))
+
+        for epoch in range(args.epochs):
+            optimizer.zero_grad()
+            loss = F.mse_loss(net(X_lab), y_lab)
+            loss_cel = loss
+            f = F.softmax(net(X_unlab))
+            loss += args.regularizer * torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))
+
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+            if epoch % 1000 == 0:
+                print(epoch, loss)
+                fig, ax = plt.subplots()
+                ax.quiver(X_unlab[:,0].cpu(), X_unlab[:,1].cpu(), net(X_unlab).cpu().detach().numpy()[:,0], net(X_unlab).cpu().detach().numpy()[:,1],
+                          color="#ff0000")  # Blue Unlab
+                ax.quiver(X_lab[:,0].cpu(), X_lab[:,1].cpu(), net(X_lab).cpu().detach().numpy()[:,0], net(X_lab).cpu().detach().numpy()[:,1],
+                          color="#0000ff")
+                ax.plot(goal[0], goal[1], 'r*')
+                if args.dataset in ['Dijkstra_grid_window','Dijkstra_random_window']:
+                    ax.add_patch(Rectangle((10 - args.width, 0), 2 * args.width, 4,
+                                           edgecolor='black',
+                                           facecolor='black',
+                                           fill=True,
+                                           lw=5))
+
+                    ax.add_patch(Rectangle((10 - args.width, 6), 2 * args.width, 4,
+                                           edgecolor='black',
+                                           facecolor='black',
+                                           fill=True,
+                                           lw=5))
+                if args.dataset in ['Dijkstra_grid_maze']:
+                    ax.add_patch(Rectangle((5 - args.width, 3), 2 * args.width, 7,
+                                           edgecolor='black',
+                                           facecolor='black',
+                                           fill=True,
+                                           lw=5))
+
+                    ax.add_patch(Rectangle((15 - args.width, 0), 2 * args.width, 7,
+                                           edgecolor='black',
+                                           facecolor='black',
+                                           fill=True,
+                                           lw=5))
+                ax.plot(goal[0], goal[1], 'r*')
+                plt.savefig(args.output_dir + '/traj_generated'+str(epoch)+'.pdf')
+
+    # print(F.mse_loss(net(X_lab), y_lab))
+    # Evaluate in a couple of trajectories
+    # x, y, x_dot, y_dot
+    # initials = [[10,5,2,0],[10,5,2,0],[10,5,3,0],[10,5,4,0],[1,1,2,2],[1,1,4,4],[1,1,1,1],[1,1,0.5,0.5],[1,1,0.1,0.1],[1,1,0.01,0.01]]
+    initials = [[1,1],[15,4],[15,5],[7.5,4],X_lab[0,:].cpu(),X_lab[1,:].cpu(),X_lab[5,:].cpu(),X_lab[-1,:].cpu(),X_lab[-2,:].cpu()]
+
+    if args.dataset in ['window','center']:
         time_step = 4 / args.n_train
-        total_time = 6
-        trajs = [np.array([]) for i in range(len(initials))]
-        accelerations = [np.array([]) for i in range(len(initials))]
-
-        fig, ax = plt.subplots()
-
-        for i,init in enumerate(initials):
-            state = np.array(init)
-            trajs[i] = state
-            for t in range(int(total_time/time_step)):
-                with torch.no_grad():
-                    acc = net(torch.Tensor(state).to(device)).cpu().detach().numpy()
-                state = navigation.step(state,acc,time_step)
-                if len(accelerations[i])==0:
-                    accelerations[i] = acc
-
-                trajs[i] = np.vstack((trajs[i],state))
-                accelerations[i] = np.vstack((accelerations[i],acc))
-
-            # fig, ax = plt.subplots()
-            plt.plot(trajs[i][:,0], trajs[i][:,1], '.-')
-
-            ax.plot(goal[0], goal[1], 'r*')
-            ax.plot(initials[i][0], initials[i][1], 'g*')
-            if args.dataset in ['window','center']:
-                ax.quiver(trajs[i][:,0], trajs[i][:, 1], trajs[i][:, 2], trajs[i][:, 3], color="#0000ff")  # Blue Velocity
-                ax.quiver(trajs[i][:, 0], trajs[i][:, 1], accelerations[i][:, 0], accelerations[i][:, 1], color="#ff0000")  # Red Accelaration
+    elif args.dataset in ['Dijkstra_random_window','Dijkstra_grid_window','Dijkstra_grid_maze']:
+        time_step = 0.1
 
 
+    total_time = 20
+    trajs = [np.array([]) for i in range(len(initials))]
+    accelerations = [np.array([]) for i in range(len(initials))]
 
-            # ax.plot(goal[0], goal[1], 'r*')
-            # ax.plot(initials[i][0], initials[i][1], 'g*')
-            # ax.add_patch(Rectangle((10 - args.width, 0), 2 * args.width, 4,
-            #                        edgecolor='black',
-            #                        facecolor='black',
-            #                        fill=True,
-            #                        lw=5))
-            #
-            # ax.add_patch(Rectangle((10 - args.width, 6), 2 * args.width, 4,
-            #                        edgecolor='black',
-            #                        facecolor='black',
-            #                        fill=True,
-            #                        lw=5))
-            # plt.grid(True)
-            # plt.xlim(0, 20)
-            # plt.ylim(0, 10)
-            # plt.savefig(args.output_dir + '/traj_generated'+str(i)+'.pdf')
+    fig, ax = plt.subplots()
+
+    for i,init in enumerate(initials):
+        state = np.array(init)
+        trajs[i] = state
+        for t in range(int(total_time/time_step)):
+            with torch.no_grad():
+                acc = net(torch.Tensor(state).to(device)).cpu().detach().numpy()
+            state = navigation.step(state,acc,time_step)
+            if len(accelerations[i])==0:
+                accelerations[i] = acc
+
+            trajs[i] = np.vstack((trajs[i],state))
+            accelerations[i] = np.vstack((accelerations[i],acc))
+
+        # fig, ax = plt.subplots()
+        plt.plot(trajs[i][:,0], trajs[i][:,1], '.-')
+
         ax.plot(goal[0], goal[1], 'r*')
         ax.plot(initials[i][0], initials[i][1], 'g*')
+        if args.dataset in ['window','center']:
+            ax.quiver(trajs[i][:,0], trajs[i][:, 1], trajs[i][:, 2], trajs[i][:, 3], color="#0000ff")  # Blue Velocity
+            ax.quiver(trajs[i][:, 0], trajs[i][:, 1], accelerations[i][:, 0], accelerations[i][:, 1], color="#ff0000")  # Red Accelaration
+        elif args.dataset in ['Dijkstra_random_window', 'Dijkstra_grid_window','Dijkstra_grid_maze']:
+            ax.quiver(X_unlab[:,0].cpu(), X_unlab[:,1].cpu(), net(X_unlab).cpu().detach().numpy()[:,0], net(X_unlab).cpu().detach().numpy()[:,1],
+                      color="#ff0000")  # Blue Unlab
+            ax.quiver(X_lab[:,0].cpu(), X_lab[:,1].cpu(), net(X_lab).cpu().detach().numpy()[:,0], net(X_lab).cpu().detach().numpy()[:,1],
+                      color="#0000ff")  # Blue Lab
+
+
+    ax.plot(goal[0], goal[1], 'r*')
+    ax.plot(initials[i][0], initials[i][1], 'g*')
+    if args.dataset in ['Dijkstra_grid_window', 'Dijkstra_random_window']:
         ax.add_patch(Rectangle((10 - args.width, 0), 2 * args.width, 4,
                                edgecolor='black',
                                facecolor='black',
@@ -249,10 +378,22 @@ def main(args):
                                facecolor='black',
                                fill=True,
                                lw=5))
-        plt.grid(True)
-        plt.xlim(0, 20)
-        plt.ylim(0, 10)
-        plt.savefig(args.output_dir + '/traj_generated_all.pdf')
+    if args.dataset in ['Dijkstra_grid_maze']:
+        ax.add_patch(Rectangle((5 - args.width, 3), 2 * args.width, 7,
+                               edgecolor='black',
+                               facecolor='black',
+                               fill=True,
+                               lw=5))
+
+        ax.add_patch(Rectangle((15 - args.width, 0), 2 * args.width, 7,
+                               edgecolor='black',
+                               facecolor='black',
+                               fill=True,
+                               lw=5))
+    plt.grid(True)
+    plt.xlim(0, 20)
+    plt.ylim(0, 10)
+    plt.savefig(args.output_dir + '/traj_generated_all.pdf')
 
 if __name__ == '__main__':
 
@@ -263,7 +404,6 @@ if __name__ == '__main__':
     parser.add_argument('--n_dim', type=int, default=2, help='Dimension')
     parser.add_argument('--n_train', type=int, default=1)
     parser.add_argument('--n_unlab', type=int, default=100, help='Number of samples per class')
-    parser.add_argument('--width', type=float, default=1.)
     parser.add_argument('--data_dir', type=str, default='./smooth/data')
 
 
@@ -277,6 +417,10 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--momentum', type=float, default=0.)
     parser.add_argument('--weight_decay', type=float, default=0.999)
+
+    parser.add_argument('--resolution', type=float, default=0.4)
+    parser.add_argument('--width', type=float, default=1.)
+
 
 
     parser.add_argument('--dual_step_mu', type=float, default=0.5)

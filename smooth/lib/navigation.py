@@ -591,74 +591,94 @@ def create_dataset(dataset, n_dim, n_train, n_unlab,  data_dir, width, resolutio
             # full coorindate arrays
             xx, yy = np.meshgrid(x, y)
             graph_unlab = np.column_stack((xx.flatten(), yy.flatten()))
-            start_points = [[1, 9]]
-            stop = np.array([19, 1])
-            X_lab = []
-            # for start in start_points:
-                # Add Start And Stop
-            # print(start)
-            start = np.array([1, 9])
-            print(start)
-
-            graph = np.vstack((start, graph_unlab, stop))
-
             list_of_delete = []
             # print(graph.shape)
 
-            for sample in range(graph.shape[0]):
-               if not sample_out_maze(graph[sample,:],width,resolution):
-                   list_of_delete = list_of_delete + [sample]
+            for sample in range(graph_unlab.shape[0]):
+                if not sample_out_maze(graph_unlab[sample, :], width, resolution):
+                    list_of_delete = list_of_delete + [sample]
+
+            graph_unlab = np.delete(graph_unlab, list_of_delete, axis=0)
 
 
-            graph = np.delete(graph, list_of_delete, axis=0)
-            matrix_graph = scipy.spatial.distance.cdist(graph, graph)
-            matrix_graph= np.where(
-                matrix_graph> 0.01 + np.sqrt((10 / (n_train - 1)) ** 2 + (10 / (n_train - 1)) ** 2), 0, matrix_graph)
-            # matrix_graph = np.where(matrix_graph > 2.5, 0, matrix_graph)
+            x = np.linspace(2.5, 17.5, 5)
+            y = np.linspace(1, 10, 8)
+            xx, yy = np.meshgrid(x, y)
 
-            matrix_graph= scipy.sparse.csr_matrix(matrix_graph)
-            _, predecessors = scipy.sparse.csgraph.dijkstra(csgraph=matrix_graph, directed=False, indices=0,
-                                                            return_predecessors=True)
-            adj_matrix, _ = scipy.sparse.csgraph.dijkstra(csgraph=matrix_graph, directed=False,
-                                                          return_predecessors=True)
+            start_points = np.column_stack((xx.flatten(), yy.flatten()))
+            stop = np.array([19, 1])
+            X_lab = []
+            for count, start in enumerate(start_points):
+                # Add Start And Stop
+            # print(start)
+                start = np.array(start)
+                graph = np.vstack((start, graph_unlab, stop))
+                matrix_graph = scipy.spatial.distance.cdist(graph, graph)
 
-            cx = scipy.sparse.coo_matrix(matrix_graph)
-            fig, ax = plt.subplots()
-            ax.add_patch(Rectangle((5-width, 3), 2*width, 7,
-                                   edgecolor='black',
-                                   facecolor='black',
-                                   fill=True,
-                                   lw=5))
+                matrix_graph = np.where(
+                    matrix_graph > 0.01 + np.sqrt((10 / (n_train - 1)) ** 2 + (10 / (n_train - 1)) ** 2), 0,
+                    matrix_graph)
+                # matrix_graph = np.where(matrix_graph > 2.5, 0, matrix_graph)
 
-            ax.add_patch(Rectangle((15-width, 0), 2*width, 7,
-                                   edgecolor='black',
-                                   facecolor='black',
-                                   fill=True,
-                                   lw=5))
-            for i, j, v in zip(cx.row, cx.col, cx.data):
-                arr = np.vstack((graph[i, :], graph[j, :]))
-                plt.plot(arr[:, 0], arr[:, 1], 'b-')
-            plt.plot(graph[:, 0], graph[:, 1], '*')
+                matrix_graph = scipy.sparse.csr_matrix(matrix_graph)
+                # list_of_delete = []
+                # # print(graph.shape)
+                #
+                # for sample in range(graph.shape[0]):
+                #    if not sample_out_maze(graph[sample,:],width,resolution):
+                #        list_of_delete = list_of_delete + [sample]
+                #
+                #
+                # graph = np.delete(graph, list_of_delete, axis=0)
+                # matrix_graph = scipy.spatial.distance.cdist(graph_unlab, graph_unlab)
+                # matrix_graph= np.where(
+                #     matrix_graph> 0.01 + np.sqrt((10 / (n_train - 1)) ** 2 + (10 / (n_train - 1)) ** 2), 0, matrix_graph)
+                # # matrix_graph = np.where(matrix_graph > 2.5, 0, matrix_graph)
+                #
+                # matrix_graph= scipy.sparse.csr_matrix(matrix_graph)
+                _, predecessors = scipy.sparse.csgraph.dijkstra(csgraph=matrix_graph, directed=False, indices=0,
+                                                                return_predecessors=True)
+                adj_matrix, _ = scipy.sparse.csgraph.dijkstra(csgraph=matrix_graph, directed=False,
+                                                              return_predecessors=True)
 
-            path = [len(predecessors) - 1]
-            item = predecessors[-1]
-            path = path + [item]
-            while item != 0:
-                item = predecessors[item]
+                cx = scipy.sparse.coo_matrix(matrix_graph)
+                if count == 0:
+                    fig, ax = plt.subplots()
+                    ax.add_patch(Rectangle((5-width, 3), 2*width, 7,
+                                           edgecolor='black',
+                                           facecolor='black',
+                                           fill=True,
+                                           lw=5))
+
+                    ax.add_patch(Rectangle((15-width, 0), 2*width, 7,
+                                           edgecolor='black',
+                                           facecolor='black',
+                                           fill=True,
+                                           lw=5))
+                    for i, j, v in zip(cx.row, cx.col, cx.data):
+                        arr = np.vstack((graph[i, :], graph[j, :]))
+                        plt.plot(arr[:, 0], arr[:, 1], 'b-')
+                    plt.plot(graph[:, 0], graph[:, 1], '*')
+
+                path = [len(predecessors) - 1]
+                item = predecessors[-1]
                 path = path + [item]
+                while item != 0:
+                    item = predecessors[item]
+                    path = path + [item]
 
-            plt.plot(graph[path, 0], graph[path, 1], 'r')
+                plt.plot(graph[path, 0], graph[path, 1], 'r')
 
-            plt.plot(graph[0, 0], graph[0, 1], 'r*')
-            plt.plot(graph[-1, 0], graph[-1, 1], 'ro')
+                plt.plot(graph[0, 0], graph[0, 1], 'r*')
+                plt.plot(graph[-1, 0], graph[-1, 1], 'ro')
 
-        # plt.show()
-            if X_lab == []:
-                X_lab = np.array(graph[path[1:], :])
-                y_lab = np.array(graph[path[:-1]] - graph[path[1:]]) / 0.1
-            else:
-                X_lab = np.vstack((X_lab,np.array(graph[path[1:], :])))
-                y_lab = np.vstack((y_lab,np.array(graph[path[:-1]] - graph[path[1:]]) / 0.1 ))
+            # plt.show()
+                if X_lab == []:
+                    X_lab = np.array(graph[path[1:], :])
+                    y_lab = np.array(graph[path[:-1]] - graph[path[1:]]) / 0.1
+                else:
+                    X_lab = np.vstack((X_lab,np.array(graph[path[1:], :])))
+                    y_lab = np.vstack((y_lab,np.array(graph[path[:-1]] - graph[path[1:]]) / 0.1 ))
             X_unlab = graph_unlab
             y_unlab = None
 

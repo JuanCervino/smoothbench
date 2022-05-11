@@ -244,7 +244,7 @@ def main(args):
         weight_decay=args.weight_decay)
 
     if args.dataset in ['Dijkstra_grid_window','Dijkstra_random_window','Dijkstra_grid_maze']:
-        scheduler =  torch.optim.lr_scheduler.StepLR(optimizer, step_size=70000, gamma=0.5)
+        scheduler =  torch.optim.lr_scheduler.StepLR(optimizer, step_size=50000, gamma=0.8)
     # Train
     if args.algorithm == 'ERM':
 
@@ -318,11 +318,95 @@ def main(args):
                 ax.plot(goal[0], goal[1], 'r*')
                 plt.savefig(args.output_dir + '/traj_generated'+str(epoch)+'.pdf')
 
+    elif args.algorithm == 'LIPSCHITZ_NO_RHO':
+
+
+        adj_matrix = torch.cdist(X_unlab,X_unlab).to(device)
+
+        L = laplacian.get_euclidean_laplacian_from_adj(adj_matrix, args.normalize, clamp_value=0.01).to(device)
+        lambda_dual = torch.ones(X_unlab.shape[0]) / X_unlab.shape[0]
+        lambda_dual = lambda_dual.to(device).detach().requires_grad_(False)
+        mu_dual = torch.Tensor(1).to(device).detach().requires_grad_(False)
+
+        for epoch in range(args.epochs):
+
+            optimizer.zero_grad()
+            loss = F.mse_loss(net(X_lab), y_lab)
+            loss_MSE = loss
+            f = net(X_unlab)
+            loss += args.regularizer * torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f)))
+
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+
+            if epoch % 1000 == 0:
+                print('------------------------------')
+                print(epoch,loss_MSE.item(), loss.item(),torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))).item(),(args.regularizer*torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))).item())
+                print('mu',mu_dual.item())
+                print('norm lambda', torch.sum(lambda_dual).item())
+                print('------------------------------')
+            ############################################
+            # Dual Update
+            ############################################
+            with torch.no_grad():
+                mu_dual = torch.nn.functional.relu(mu_dual + args.dual_step_mu * (F.mse_loss(net(X_lab), y_lab) - args.epsilon))
+                f_prime = net(X_unlab)
+                f_matrix= []
+                f_matrix.append([])
+                f_matrix [0] = torch.cat([f_prime[:,0]] * f_prime.shape[0]).reshape((f_prime.shape[0], f_prime.shape[0]))
+                f_matrix.append([])
+                f_matrix[1] = torch.cat([f_prime[:,1]] * f_prime.shape[0]).reshape((f_prime.shape[0], f_prime.shape[0]))
+
+                numerator = torch.abs (f_matrix [0] - f_matrix[0].transpose(0,1)) + torch.abs(f_matrix [1] - f_matrix[1].transpose(0,1)).to(device)
+                division = torch.div(numerator, (adj_matrix + torch.eye(f_prime.shape[0]).to(device)))
+                [grads,indices] = torch.max(division, 1)
+                # grads = grads.pow(2)
+                lambda_dual = F.relu(lambda_dual + args.dual_step_mu*(grads))
+
+                # Juan Needs to Correct This
+                lambda_dual = 1*lambda_dual/torch.sum(lambda_dual).item()
+
+            if epoch % 1000 == 0:
+                print(epoch, loss)
+                fig, ax = plt.subplots()
+                ax.quiver(X_unlab[:,0].cpu(), X_unlab[:,1].cpu(), net(X_unlab).cpu().detach().numpy()[:,0], net(X_unlab).cpu().detach().numpy()[:,1],
+                          color="#ff0000")  # Blue Unlab
+                ax.quiver(X_lab[:,0].cpu(), X_lab[:,1].cpu(), net(X_lab).cpu().detach().numpy()[:,0], net(X_lab).cpu().detach().numpy()[:,1],
+                          color="#0000ff")
+                ax.plot(goal[0], goal[1], 'r*')
+                if args.dataset in ['Dijkstra_grid_window','Dijkstra_random_window']:
+                    ax.add_patch(Rectangle((10 - args.width, 0), 2 * args.width, 4,
+                                           edgecolor='black',
+                                           facecolor='black',
+                                           fill=True,
+                                           lw=5))
+
+                    ax.add_patch(Rectangle((10 - args.width, 6), 2 * args.width, 4,
+                                           edgecolor='black',
+                                           facecolor='black',
+                                           fill=True,
+                                           lw=5))
+                if args.dataset in ['Dijkstra_grid_maze']:
+                    ax.add_patch(Rectangle((5 - args.width, 3), 2 * args.width, 7,
+                                           edgecolor='black',
+                                           facecolor='black',
+                                           fill=True,
+                                           lw=5))
+
+                    ax.add_patch(Rectangle((15 - args.width, 0), 2 * args.width, 7,
+                                           edgecolor='black',
+                                           facecolor='black',
+                                           fill=True,
+                                           lw=5))
+                ax.plot(goal[0], goal[1], 'r*')
+                plt.savefig(args.output_dir + '/traj_generated'+str(epoch)+'.pdf')
+
     # print(F.mse_loss(net(X_lab), y_lab))
     # Evaluate in a couple of trajectories
     # x, y, x_dot, y_dot
     # initials = [[10,5,2,0],[10,5,2,0],[10,5,3,0],[10,5,4,0],[1,1,2,2],[1,1,4,4],[1,1,1,1],[1,1,0.5,0.5],[1,1,0.1,0.1],[1,1,0.01,0.01]]
-    initials = [[1,1],[15,4],[15,5],[7.5,4],X_lab[0,:].cpu(),X_lab[1,:].cpu(),X_lab[5,:].cpu(),X_lab[-1,:].cpu(),X_lab[-2,:].cpu()]
+    initials = [[1,1],[1, 7],[2, 9],[1, 9],X_lab[0,:].cpu(),X_lab[1,:].cpu(),X_lab[5,:].cpu(),X_lab[-1,:].cpu(),X_lab[-2,:].cpu()]
 
     if args.dataset in ['window','center']:
         time_step = 4 / args.n_train
@@ -409,7 +493,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--algorithm', type=str, default='ERM')
     parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument('--regularizer', type=float, default=1)
+    parser.add_argument('--regularizer', type=float, default=0.)
     parser.add_argument('--heat_kernel_t', type=float, default=0.05)
     parser.add_argument('--normalize', type=bool, default=True)
 
@@ -423,10 +507,10 @@ if __name__ == '__main__':
 
 
 
-    parser.add_argument('--dual_step_mu', type=float, default=0.5)
-    parser.add_argument('--dual_step_lambda', type=float, default=0.1)
-    parser.add_argument('--rho_step', type=float, default=0.1)
-    parser.add_argument('--epsilon', type=float, default=0.01)
+    parser.add_argument('--dual_step_mu', type=float, default=0.)
+    parser.add_argument('--dual_step_lambda', type=float, default=0.)
+    parser.add_argument('--rho_step', type=float, default=0.)
+    parser.add_argument('--epsilon', type=float, default=0.1)
 
     args = parser.parse_args()
 

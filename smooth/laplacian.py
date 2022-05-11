@@ -94,3 +94,29 @@ def get_laplacian_from_adj(adj_matrix, normalize = False, heat_kernel_t = 10, cl
         L = D - adj_matrix
     return L
 
+def get_euclidean_laplacian_from_adj(adj_matrix, normalize = False, clamp_value=None):
+
+    # Remove small values
+    adj_matrix = torch.square(adj_matrix)
+
+    # adj_matrix = torch.div( adj_matrix, -4*heat_kernel_t)
+    # adj_matrix = torch.exp(adj_matrix)
+    # adj_matrix = adj_matrix.fill_diagonal_(0) # Delete the diagonal elements
+
+    if clamp_value!=None:
+        zero_tensor = torch.zeros(adj_matrix.size()).to('cuda')
+        adj_matrix = torch.where(adj_matrix > clamp_value, adj_matrix, zero_tensor)
+
+    if normalize:
+        D = torch.sum(adj_matrix, axis=1)  # (batch_size,num_points)
+        eye = torch.eye(adj_matrix.size()[0]).to('cuda') # Juan Modified This
+        D = torch.diag(1 / torch.sqrt(D))
+        L = eye - torch.matmul(torch.matmul(D, adj_matrix), D)
+    else:
+        D = torch.sum(adj_matrix, axis=1)  # (batch_size,num_points)
+        # eye = tf.ones_like(D)
+        # eye = tf.matrix_diag(eye)
+        # D = 1 / tf.sqrt(D)
+        D = torch.diag(D)
+        L = D - adj_matrix
+    return L

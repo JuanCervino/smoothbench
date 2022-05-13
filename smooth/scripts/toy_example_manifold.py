@@ -146,6 +146,8 @@ def main(args):
         # unlab_dataloader = DataLoader(unlab_dataset, batch_size = int(unlab_dataset.__len__()/10),num_workers=10)
         unlab_dataloader = DataLoader(unlab_dataset)
 
+        best_so_far = 0
+
         L = laplacian.get_laplacian(X_unlab, args.normalize, heat_kernel_t=args.heat_kernel_t).to(device)
         # zero = torch.zeros_like(L)
         # L_smooth =  torch.where(L > 0, L, zero)
@@ -166,6 +168,22 @@ def main(args):
             loss.backward()
             optimizer.step()
             acc = accuracy(net,unlab_dataloader,'cuda')
+            if acc > best_so_far:
+                best_so_far = acc
+                out_lab = net(X_lab).argmax(dim=1, keepdim=True)
+                out_unlab = net(X_unlab).argmax(dim=1, keepdim=True)
+
+                out_lab_np = out_lab.cpu().detach().numpy()
+                out_lab_np = out_lab_np.squeeze()
+                out_unlab_np = out_unlab.cpu().detach().numpy()
+                out_unlab_np = out_unlab_np.squeeze()
+
+                # toyexample.save_output_allspace(net, args.output_dir,epoch)
+                toyexample.save_output(X_lab.cpu().detach().numpy(), out_lab_np,
+                                        X_unlab.cpu().detach().numpy(), out_unlab_np, args.output_dir,'best'+str(best_so_far)+str(epoch))
+                toyexample.save_output_allspace(net,X_lab.cpu().detach().numpy(), out_lab_np,
+                                        X_unlab.cpu().detach().numpy(), out_unlab_np, args.output_dir,'best'+str(best_so_far)+str(epoch))
+
             utils.save_state(args.output_dir, epoch, loss_cel.item(),args.regularizer * torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))).item() ,torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))).item(),acc , filename = 'losses.csv')
             print(epoch,loss_cel.item(), torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))).item(),(args.regularizer*torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))).item(),acc)
 
@@ -300,7 +318,7 @@ def main(args):
         # unlab_dataloader = DataLoader(unlab_dataset, batch_size = int(unlab_dataset.__len__()/10),num_workers=10)
         unlab_dataloader = DataLoader(unlab_dataset)
 
-
+        best_so_far = 0
 
         adj_matrix = torch.cdist(X_unlab, X_unlab)
         L = laplacian.get_laplacian(X_unlab,  True, heat_kernel_t=args.heat_kernel_t, clamp_value = 0.001).to(device)
@@ -329,6 +347,24 @@ def main(args):
 
             optimizer.step()
             acc = accuracy(net,unlab_dataloader,'cuda')
+            if acc > best_so_far:
+                best_so_far = acc
+                out_lab = net(X_lab).argmax(dim=1, keepdim=True)
+                out_unlab = net(X_unlab).argmax(dim=1, keepdim=True)
+
+                out_lab_np = out_lab.cpu().detach().numpy()
+                out_lab_np = out_lab_np.squeeze()
+                out_unlab_np = out_unlab.cpu().detach().numpy()
+                out_unlab_np = out_unlab_np.squeeze()
+
+                # toyexample.save_output_allspace(net, args.output_dir,epoch)
+                toyexample.save_lambdas_all_space(net,X_lab.cpu().detach().numpy(), out_lab_np,
+                                        X_unlab.cpu().detach().numpy(), out_unlab_np, lambda_dual.cpu().detach().numpy(),args.output_dir,'best'+str(best_so_far)+str(epoch))
+                toyexample.save_output(X_lab.cpu().detach().numpy(), out_lab_np,
+                                        X_unlab.cpu().detach().numpy(), out_unlab_np, args.output_dir,'best'+str(best_so_far))
+
+
+
             utils.save_state(args.output_dir, epoch, loss_cel.item(),args.regularizer * torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f))).item() ,torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))).item(),acc , filename = 'losses.csv')
             print('------------------------------')
             print(epoch,loss_cel.item(), torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))).item(),(args.regularizer*torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))).item(),acc)
@@ -359,11 +395,17 @@ def main(args):
                 division = torch.div(numerator, (adj_matrix + torch.eye(f_prime.shape[0]).to(device)))
                 [grads,indices] = torch.max(division, 1)
                 # grads = grads.pow(2)
-                print(grads)
+                # print(grads)
                 lambda_dual = F.relu(lambda_dual + args.dual_step_mu*(grads))
-                lambda_dual = 100*lambda_dual/torch.sum(lambda_dual).item()
+                # Project
 
-            if epoch%100 == 0:
+                lambda_dual = 100*lambda_dual/torch.sum(lambda_dual).item()
+                # print('norm lambda',torch.sum(lambda_dual))
+                #
+                # lambda_dual = 100*laplacian.projsplx(lambda_dual.cpu()).to(device)
+                # print('norm lambda',torch.sum(lambda_dual))
+
+            if epoch%500 == 0:
                 out_lab = net(X_lab).argmax(dim=1, keepdim=True)
                 out_unlab = net(X_unlab).argmax(dim=1, keepdim=True)
 
@@ -377,6 +419,7 @@ def main(args):
                                         X_unlab.cpu().detach().numpy(), out_unlab_np, lambda_dual.cpu().detach().numpy(),args.output_dir,epoch)
                 toyexample.save_output(X_lab.cpu().detach().numpy(), out_lab_np,
                                         X_unlab.cpu().detach().numpy(), out_unlab_np, args.output_dir,epoch)
+
                 # toyexample.save_lambdas(X_lab.cpu().detach().numpy(), out_lab_np,
                 #                         X_unlab.cpu().detach().numpy(), out_unlab_np, lambda_dual.cpu().detach().numpy(),args.output_dir,epoch)
         out_lab = net(X_lab).argmax(dim=1, keepdim=True)

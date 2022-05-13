@@ -120,3 +120,24 @@ def get_euclidean_laplacian_from_adj(adj_matrix, normalize = False, clamp_value=
         D = torch.diag(D)
         L = D - adj_matrix
     return L
+
+
+def projsplx(tensor):
+    hk1 = np.argsort(tensor.detach())
+    vals = tensor[hk1]
+    n = len(vals)
+    Flag = True
+    i = n - 1
+    while Flag:
+        ti = (torch.sum(vals[i + 1:]) - 1) / (n - i)
+        if ti >= vals[i]:
+            Flag = False
+            that = ti
+        else:
+            i = i - 1
+        if i == 0:
+            Flag = False
+            that = (torch.sum(vals) - 1) / n
+    vals = torch.nn.functional.relu(vals - that)
+    vals = vals/torch.sum(vals).item()
+    return vals[np.argsort(hk1)]

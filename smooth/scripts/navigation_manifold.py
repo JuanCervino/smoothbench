@@ -245,6 +245,7 @@ def main(args):
         scheduler =  torch.optim.lr_scheduler.StepLR(optimizer, step_size=50000, gamma=0.8)
     # Train
     if args.algorithm == 'ERM':
+        best_acc = 0
 
         columns = ['Epoch', 'Loss', 'Accuracy']
         utils.create_csv(args.output_dir, 'losses.csv', columns)
@@ -259,15 +260,20 @@ def main(args):
             if epoch%1000 == 0:
                 # print(epoch,loss)
             # acc = accuracy(net, unlab_dataloader, 'cuda')
-                accuracy = navigation.eval_trajectories(net, X_test, args.width, goal, 0.3, 0.1, 20, args.dataset,device,X_unlab,X_lab,args.output_dir,epoch)
+                accuracy = navigation.eval_trajectories(net, X_test, args.width, goal, args.radius, 0.1, 20, args.dataset,device,X_unlab,X_lab,args.output_dir,epoch,False)
                 utils.save_state(args.output_dir, epoch, loss.item(), accuracy,filename='losses.csv')
+                if accuracy > best_acc:
+                    best_acc = accuracy
+                    _ = navigation.eval_trajectories(net, X_test, args.width, goal, args.radius, 0.1, 20,
+                                                            args.dataset, device, X_unlab, X_lab, args.output_dir,
+                                                            epoch, True)
 
 
 
     elif args.algorithm == 'LAPLACIAN_REGULARIZATION':
 
-        adj_matrix = torch.Tensor(adj_matrix).to(device)
-
+        adj_matrix = torch.cdist(X_unlab,X_unlab).to(device)
+        best_acc = 0
         L = laplacian.get_laplacian_from_adj(adj_matrix, args.normalize, heat_kernel_t=args.heat_kernel_t, clamp_value=0.01).to(device)
         # zero = torch.zeros_like(L)
         # L_smooth =  torch.where(L > 0, L, zero)
@@ -280,53 +286,24 @@ def main(args):
             optimizer.zero_grad()
             loss = F.mse_loss(net(X_lab), y_lab)
             loss_cel = loss
-            f = F.softmax(net(X_unlab))
+            f = net(X_unlab)
             loss += args.regularizer * torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))
-
             loss.backward()
             optimizer.step()
             scheduler.step()
             if epoch % 1000 == 0:
                 # print(epoch, loss)
-                accuracy = navigation.eval_trajectories(net, X_test, args.width, goal, 0.2, 0.1, 20, args.dataset,device,X_unlab,X_lab,args.output_dir,epoch)
+                accuracy = navigation.eval_trajectories(net, X_test, args.width, goal, args.radius, 0.1, 20, args.dataset,device,X_unlab,X_lab,args.output_dir,epoch,False)
                 utils.save_state(args.output_dir, epoch, loss.item(),loss_cel.item(), accuracy,filename='losses.csv')
-                # fig, ax = plt.subplots()
-                # ax.quiver(X_unlab[:,0].cpu(), X_unlab[:,1].cpu(), net(X_unlab).cpu().detach().numpy()[:,0], net(X_unlab).cpu().detach().numpy()[:,1],
-                #           color="#ff0000")  # Blue Unlab
-                # ax.quiver(X_lab[:,0].cpu(), X_lab[:,1].cpu(), net(X_lab).cpu().detach().numpy()[:,0], net(X_lab).cpu().detach().numpy()[:,1],
-                #           color="#0000ff")
-                # ax.plot(goal[0], goal[1], 'r*')
-                # if args.dataset in ['Dijkstra_grid_window','Dijkstra_random_window']:
-                #     ax.add_patch(Rectangle((10 - args.width, 0), 2 * args.width, 4,
-                #                            edgecolor='black',
-                #                            facecolor='black',
-                #                            fill=True,
-                #                            lw=5))
-                #
-                #     ax.add_patch(Rectangle((10 - args.width, 6), 2 * args.width, 4,
-                #                            edgecolor='black',
-                #                            facecolor='black',
-                #                            fill=True,
-                #                            lw=5))
-                # if args.dataset in ['Dijkstra_grid_maze']:
-                #     ax.add_patch(Rectangle((5 - args.width, 3), 2 * args.width, 7,
-                #                            edgecolor='black',
-                #                            facecolor='black',
-                #                            fill=True,
-                #                            lw=5))
-                #
-                #     ax.add_patch(Rectangle((15 - args.width, 0), 2 * args.width, 7,
-                #                            edgecolor='black',
-                #                            facecolor='black',
-                #                            fill=True,
-                #                            lw=5))
-                # ax.plot(goal[0], goal[1], 'r*')
-                # plt.savefig(args.output_dir + '/traj_generated'+str(epoch)+'.pdf')
+                if best_acc < accuracy:
+                    best_acc = accuracy
+                    _ = navigation.eval_trajectories(net, X_test, args.width, goal, args.radius, 0.1, 20, args.dataset, device,
+                                                 X_unlab, X_lab, args.output_dir, epoch, True)
 
     elif args.algorithm == 'LIPSCHITZ_NO_RHO':
         columns = ['Epoch', 'Loss', 'Accuracy','MSE','mu_dual','laplacian']
         utils.create_csv(args.output_dir, 'losses.csv', columns)
-
+        best_acc = 0
         adj_matrix = torch.cdist(X_unlab,X_unlab).to(device)
         L = laplacian.get_euclidean_laplacian_from_adj(adj_matrix, args.normalize, clamp_value=args.clamp).to(device)
         # Plot graph
@@ -361,7 +338,7 @@ def main(args):
                 print('mu',mu_dual.item())
                 print('norm lambda', torch.sum(lambda_dual).item())
                 print('------------------------------')
-                accuracy = navigation.eval_trajectories(net, X_test, args.width, goal, 0.2, 0.1, 20, args.dataset,device,X_unlab,X_lab,args.output_dir,epoch)
+                accuracy = navigation.eval_trajectories(net, X_test, args.width, goal, args.radius, 0.1, 20, args.dataset,device,X_unlab,X_lab,args.output_dir,epoch, False)
                 utils.save_state(args.output_dir, epoch, loss.item(), loss_MSE, accuracy,mu_dual,torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f))) , filename='losses.csv')
             ############################################
             # Dual Update
@@ -385,7 +362,12 @@ def main(args):
                 # Juan Needs to Correct This
                 lambda_dual = lambda_dual/torch.sum(lambda_dual).item()
 
-            if epoch % 1000 == 0:
+            # if epoch % 1000 == 0:
+            if best_acc < accuracy:
+                best_acc = accuracy
+                _ = navigation.eval_trajectories(net, X_test, args.width, goal, args.radius, 0.1, 20, args.dataset, device,
+                                             X_unlab, X_lab, args.output_dir, epoch, True)
+
                 print(epoch, loss)
                 fig, ax = plt.subplots()
                 ax.quiver(X_unlab[:,0].cpu(), X_unlab[:,1].cpu(), net(X_unlab).cpu().detach().numpy()[:,0], net(X_unlab).cpu().detach().numpy()[:,1],
@@ -418,7 +400,7 @@ def main(args):
                                            fill=True,
                                            lw=5))
                 ax.plot(goal[0], goal[1], 'r*')
-                plt.savefig(args.output_dir + '/traj_generated'+str(epoch)+'.pdf')
+                plt.savefig(args.output_dir + '/traj_generated'+str(accuracy)+'epoch'+str(epoch)+'.pdf')
                 fig, ax = plt.subplots()
                 x = np.linspace(0, 20, 2 * args.n_train - 1)
                 y = np.linspace(0, 10, args.n_train)
@@ -431,7 +413,7 @@ def main(args):
                     ["#377eb8", "#ff7f00", "#4daf4a"]
                 )
                 plt.scatter(X_unlab[:, 0].detach().cpu().numpy(), X_unlab[:, 1].detach().cpu().numpy(), s=lambdas)
-                plt.savefig(args.output_dir + '/lambdas'+str(epoch)+'.pdf')
+                plt.savefig(args.output_dir + '/lambdas'+str(accuracy)+'epoch'+str(epoch)+'.pdf')
 
 
     # print(F.mse_loss(net(X_lab), y_lab))
@@ -536,6 +518,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--resolution', type=float, default=0.4)
     parser.add_argument('--width', type=float, default=1.)
+    parser.add_argument('--radius', type=float, default=0.3, help='Radius around the goal that determines a succesful trajectory')
 
 
 

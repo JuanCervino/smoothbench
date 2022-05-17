@@ -808,9 +808,9 @@ def create_dataset(dataset, n_dim, n_train, n_unlab,  data_dir, width, resolutio
         # pass
     return [X_lab, y_lab, X_unlab, y_unlab], adj_matrix, X_test
 
-def eval_trajectories(net, initials, width, goal, radius, time_step, total_time, dataset,device,X_unlab,X_lab,output_dir,name):
+def eval_trajectories(net, initials, width, goal, radius, time_step, total_time, dataset,device,X_unlab,X_lab,output_dir,name, plot):
     assert dataset in ['Dijkstra_grid_maze_two_points']
-    plot = (name % 10000 == 0 )
+    # plot = (name % 10000 == 0 )
     trajs = [np.array([]) for i in range(len(initials))]
     vels = [np.array([]) for i in range(len(initials))]
     if dataset == 'Dijkstra_grid_maze_two_points':
@@ -824,6 +824,27 @@ def eval_trajectories(net, initials, width, goal, radius, time_step, total_time,
                 with torch.no_grad():
                     acc = net(torch.Tensor(state).to(device)).cpu().detach().numpy()
 
+                state_new = step(state, acc, time_step)
+                if len(vels[i]) == 0:
+                    vels[i] = acc
+
+                trajs[i] = np.vstack((trajs[i], state_new))
+                vels[i] = np.vstack((vels[i], acc))
+
+                if (state[0]<5-width and state_new[0]>=5-width and (state[1]>=3 or state_new[1]>=3)) \
+                    or (state_new[0] < 5 - width and state[0] >= 5 - width and (state[1] >= 3 or state_new[1] >= 3)) \
+                    or (state[0] < 5 + width and state_new[0] >= 5 + width and (state[1] >= 3 or state_new[1] >= 3)) \
+                    or (state_new[0] < 5 + width and state[0] >= 5 + width and (state[1] >= 3 or state_new[1] >= 3)) \
+                    or (state[0] < 15 - width and state_new[0] >= 15 - width and (state[1] <= 7 or state_new[1] <= 7)) \
+                    or (state_new[0] < 15 - width and state[0] >= 15 - width and (state[1] <= 7 or state_new[1] <= 7)) \
+                    or (state[0] < 15 + width and state_new[0] >= 15 + width and (state[1] <= 7 or state_new[1] <= 7)) \
+                    or (state_new[0] < 15 + width and state[0] >= 15 + width and (state[1] <= 7 or state_new[1] <= 7)) \
+                    or state[0] > 20 or state[0]<0 or state[1]>10 or state[1]<0 \
+                    or np.linalg.norm(state-goal)<radius:
+                    break
+
+
+                state = state_new
 
                 # state = step(state, acc, time_step)
                 # if len(vels[i]) == 0:

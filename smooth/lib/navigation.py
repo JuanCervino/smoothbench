@@ -824,45 +824,49 @@ def eval_trajectories(net, initials, width, goal, radius, time_step, total_time,
                 with torch.no_grad():
                     acc = net(torch.Tensor(state).to(device)).cpu().detach().numpy()
 
-                projection = step(state, 0.75* acc, time_step)
-                if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
-                        projection[0]<0 or projection[1]>10 or projection[1]<0:
-                    break
-                projection = step(state, 0.5* acc, time_step)
-                if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
-                        projection[0]<0 or projection[1]>10 or projection[1]<0:
-                    break
-                projection = step(state, 0.25* acc, time_step)
-                if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
-                        projection[0]<0 or projection[1]>10 or projection[1]<0:
-                    break
-                state = step(state, acc, time_step)
-                if len(vels[i]) == 0:
-                    vels[i] = acc
 
-                trajs[i] = np.vstack((trajs[i], state))
-                vels[i] = np.vstack((vels[i], acc))
-                if not sample_out_maze(state,width,tolerance=0) or state[0]>20 or \
-                        state[0]<0 or state[1]>10 or state[1]<0 or\
-                        np.linalg.norm(state-goal)<radius:
-                    break
-                projection = step(state, 0.75* acc, time_step)
-                if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
-                        projection[0]<0 or projection[1]>10 or projection[1]<0:
-                    break
-                projection = step(state, 0.5* acc, time_step)
-                if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
-                        projection[0]<0 or projection[1]>10 or projection[1]<0:
-                    break
-                projection = step(state, 0.25* acc, time_step)
-                if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
-                        projection[0]<0 or projection[1]>10 or projection[1]<0:
-                    break
+                # state = step(state, acc, time_step)
+                # if len(vels[i]) == 0:
+                #     vels[i] = acc
+                #
+                # trajs[i] = np.vstack((trajs[i], state))
+                # vels[i] = np.vstack((vels[i], acc))
+
+                # if not sample_out_maze(state,width,tolerance=0) or state[0]>20 or \
+                #         state[0]<0 or state[1]>10 or state[1]<0 or\
+                #         np.linalg.norm(state-goal)<radius:
+                #     break
+                # projection = step(state, 0.75* acc, time_step)
+                # if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
+                #         projection[0]<0 or projection[1]>10 or projection[1]<0:
+                #     break
+                # projection = step(state, 0.5* acc, time_step)
+                # if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
+                #         projection[0]<0 or projection[1]>10 or projection[1]<0:
+                #     break
+                # projection = step(state, 0.25* acc, time_step)
+                # if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
+                #         projection[0]<0 or projection[1]>10 or projection[1]<0:
+                #     break
+                # projection = step(state, -0.75 * acc, time_step)
+                # if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
+                #         projection[0]<0 or projection[1]>10 or projection[1]<0:
+                #     break
+                # projection = step(state, -0.5* acc, time_step)
+                # if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
+                #         projection[0]<0 or projection[1]>10 or projection[1]<0:
+                #     break
+                # projection = step(state, -0.25* acc, time_step)
+                # if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
+                #         projection[0]<0 or projection[1]>10 or projection[1]<0:
+                #     break
+
             if np.linalg.norm(state-goal)<radius:
                 successful_trials = successful_trials + 1
 
             # fig, ax = plt.subplots()
             if plot:
+                # print(trajs.shape)
                 plt.plot(trajs[i][:, 0], trajs[i][:, 1], '.-')
 
                 ax.plot(goal[0], goal[1], 'r*')

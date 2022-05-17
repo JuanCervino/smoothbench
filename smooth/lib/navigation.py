@@ -9,9 +9,9 @@ import torch
 # x_center,y_i,y_f
 def sample_out_maze(sample, width, tolerance):
     out = True
-    if sample[0] < 5+width+tolerance and sample[0] > 5-width-tolerance*0.5 and sample[1] > 3 - tolerance:
+    if sample[0] < 5+width+tolerance and sample[0] > 5-width-tolerance and sample[1] > 3 - tolerance:
         out = False
-    if sample[0] < 15+width+tolerance and sample[0] > 15-width-tolerance*0.5 and sample[1] < 7 +tolerance:
+    if sample[0] < 15+width+tolerance and sample[0] > 15-width-tolerance and sample[1] < 7 +tolerance:
         out = False
     return out
 
@@ -146,7 +146,7 @@ def create_dataset(dataset, n_dim, n_train, n_unlab,  data_dir, width, resolutio
     if os.path.exists(data_dir+file_name):
         # [X_lab,y_lab,X_unlab, y_unlab] = pickle.load(data_dir+file_name)
         with open(data_dir+file_name, 'rb') as pickle_file:
-            [X_lab,y_lab,X_unlab, y_unlab] = pickle.load(pickle_file)
+            [X_lab,y_lab,X_unlab, y_unlab,adj_matrix] = pickle.load(pickle_file)
     else:
         if dataset == 'window':
             goal = [19,1]
@@ -781,35 +781,36 @@ def create_dataset(dataset, n_dim, n_train, n_unlab,  data_dir, width, resolutio
                     X_lab = np.vstack((X_lab,np.array(graph[path[1:], :])))
                     y_lab = np.vstack((y_lab,np.array(graph[path[:-1]] - graph[path[1:]]) / 0.1 ))
             X_unlab = graph_unlab
-            y_unlab = None
+            y_unlab = np.array([])
 
         # Save Dataset
-        pickle.dump([X_lab, y_lab, X_unlab, y_unlab], open(data_dir+file_name, "wb"))
+        pickle.dump([X_lab, y_lab, X_unlab, y_unlab,adj_matrix], open(data_dir+file_name, "wb"))
 
 
-        # Test Set
-        file_name = '/'+dataset+'_test'+str(n_train)+'_unlab'+str(n_unlab)+'_width'+str(width)+'.p'
-        if os.path.exists(data_dir + file_name):
-            with open(data_dir+file_name, 'rb') as pickle_file:
-                [X_test] = pickle.load(pickle_file)
-        else:
-            weights = np.array([20, 10])
-            X_test = None
-            for sample in range(n_test):
+    # Test Set
+    file_name = '/'+dataset+'_test'+str(n_train)+'_unlab'+str(n_unlab)+'_width'+str(width)+'.p'
+    if os.path.exists(data_dir + file_name):
+        with open(data_dir+file_name, 'rb') as pickle_file:
+            [X_test] = pickle.load(pickle_file)
+    else:
+        weights = np.array([20, 10])
+        X_test = np.array([])
+        for sample in range(n_test):
+            s = np.multiply(np.random.uniform(0, 1, 2), weights)
+            while not sample_out_maze(s, width, 0.2):
                 s = np.multiply(np.random.uniform(0, 1, 2), weights)
-                while not not sample_out_maze(s, width, 0.2):
-                    s = np.multiply(np.random.uniform(0, 1, 2), weights)
-                    if X_test == None:
-                        X_test = s
-                    else:
-                        X_test = np.vstack((s, X_test))
-            pickle.dump([X_test], open(data_dir + file_name, "wb"))
+            if len(X_test) == 0:
+                X_test = s
+            else:
+                X_test = np.vstack((s, X_test))
 
-        return [X_lab, y_lab, X_unlab, y_unlab], adj_matrix, X_test
-
+        pickle.dump([X_test], open(data_dir + file_name, "wb"))
+        # pass
+    return [X_lab, y_lab, X_unlab, y_unlab], adj_matrix, X_test
 
 def eval_trajectories(net, initials, width, goal, radius, time_step, total_time, dataset,device,X_unlab,X_lab,output_dir,name):
     assert dataset in ['Dijkstra_grid_maze_two_points']
+    plot = (name % 10000 == 0 )
     trajs = [np.array([]) for i in range(len(initials))]
     vels = [np.array([]) for i in range(len(initials))]
     if dataset == 'Dijkstra_grid_maze_two_points':
@@ -822,33 +823,75 @@ def eval_trajectories(net, initials, width, goal, radius, time_step, total_time,
             for t in range(int(total_time / time_step)):
                 with torch.no_grad():
                     acc = net(torch.Tensor(state).to(device)).cpu().detach().numpy()
+
+                projection = step(state, 0.75* acc, time_step)
+                if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
+                        projection[0]<0 or projection[1]>10 or projection[1]<0:
+                    break
+                projection = step(state, 0.5* acc, time_step)
+                if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
+                        projection[0]<0 or projection[1]>10 or projection[1]<0:
+                    break
+                projection = step(state, 0.25* acc, time_step)
+                if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
+                        projection[0]<0 or projection[1]>10 or projection[1]<0:
+                    break
                 state = step(state, acc, time_step)
                 if len(vels[i]) == 0:
                     vels[i] = acc
 
                 trajs[i] = np.vstack((trajs[i], state))
                 vels[i] = np.vstack((vels[i], acc))
-                if not sample_out_maze(state, width, 0):
+                if not sample_out_maze(state,width,tolerance=0) or state[0]>20 or \
+                        state[0]<0 or state[1]>10 or state[1]<0 or\
+                        np.linalg.norm(state-goal)<radius:
                     break
-                if np.linalg.norm(state-goal)<radius:
-                    successful_trials = successful_trials + 1
+                projection = step(state, 0.75* acc, time_step)
+                if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
+                        projection[0]<0 or projection[1]>10 or projection[1]<0:
+                    break
+                projection = step(state, 0.5* acc, time_step)
+                if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
+                        projection[0]<0 or projection[1]>10 or projection[1]<0:
+                    break
+                projection = step(state, 0.25* acc, time_step)
+                if not sample_out_maze(projection,width,tolerance=0) or projection[0]>20 or \
+                        projection[0]<0 or projection[1]>10 or projection[1]<0:
+                    break
+            if np.linalg.norm(state-goal)<radius:
+                successful_trials = successful_trials + 1
 
             # fig, ax = plt.subplots()
-            plt.plot(trajs[i][:, 0], trajs[i][:, 1], '.-')
+            if plot:
+                plt.plot(trajs[i][:, 0], trajs[i][:, 1], '.-')
 
-            ax.plot(goal[0], goal[1], 'r*')
-            ax.plot(initials[i][0], initials[i][1], 'g*')
-            ax.quiver(X_unlab[:, 0].cpu(), X_unlab[:, 1].cpu(), net(X_unlab).cpu().detach().numpy()[:, 0],
-                      net(X_unlab).cpu().detach().numpy()[:, 1],
-                      color="#ff0000")  # Blue Unlab
-            ax.quiver(X_lab[:, 0].cpu(), X_lab[:, 1].cpu(), net(X_lab).cpu().detach().numpy()[:, 0],
-                      net(X_lab).cpu().detach().numpy()[:, 1],
-                      color="#0000ff")  # Blue Lab
-            ax.plot(initials[i][0], initials[i][1], 'g*')
-        plt.grid(True)
-        plt.xlim(0, 20)
-        plt.ylim(0, 10)
-        plt.savefig(output_dir + '/traj_generated_all'+str(name)+'_'+str(successful_trials/len(initials))+'.pdf')
+                ax.plot(goal[0], goal[1], 'r*')
+                ax.plot(initials[i][0], initials[i][1], 'g*')
+                ax.quiver(X_unlab[:, 0].cpu(), X_unlab[:, 1].cpu(), net(X_unlab).cpu().detach().numpy()[:, 0],
+                          net(X_unlab).cpu().detach().numpy()[:, 1],
+                          color="#ff0000")  # Blue Unlab
+                ax.quiver(X_lab[:, 0].cpu(), X_lab[:, 1].cpu(), net(X_lab).cpu().detach().numpy()[:, 0],
+                          net(X_lab).cpu().detach().numpy()[:, 1],
+                          color="#0000ff")  # Blue Lab
+                ax.plot(initials[i][0], initials[i][1], 'g*')
+        if plot:
+            ax.add_patch(Rectangle((5 - 2*width, 3), 2 * width, 7,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
+
+            ax.add_patch(Rectangle((15 - 2*width, 0), 2 * width, 7,
+                                   edgecolor='black',
+                                   facecolor='black',
+                                   fill=True,
+                                   lw=5))
+            plt.grid(True)
+            plt.xlim(0, 20)
+            plt.ylim(0, 10)
+            plt.savefig(output_dir + '/traj_generated_all_'+str(name)+'_'+str(successful_trials/len(initials))+'.pdf')
+
+    return successful_trials/len(initials)
 
 
 

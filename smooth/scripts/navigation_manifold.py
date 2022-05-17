@@ -89,8 +89,7 @@ def main(args):
 
 
     # Create Dataset
-    [X_lab,y_lab,X_unlab,y_unlab], adj_matrix = navigation.create_dataset (args.dataset, args.n_dim, args.n_train, args.n_unlab, args.data_dir, args.width, args.resolution)
-
+    [X_lab,y_lab,X_unlab,y_unlab], adj_matrix,X_test = navigation.create_dataset (args.dataset, args.n_dim, args.n_train, args.n_unlab, args.data_dir, args.width, args.resolution)
 
     plot = True
     goal = [19,1]
@@ -260,7 +259,10 @@ def main(args):
             if epoch%1000 == 0:
                 # print(epoch,loss)
             # acc = accuracy(net, unlab_dataloader, 'cuda')
-                utils.save_state(args.output_dir, epoch, loss.item(), filename='losses.csv')
+                accuracy = navigation.eval_trajectories(net, X_test, args.width, goal, 0.3, 0.1, 20, args.dataset,device,X_unlab,X_lab,args.output_dir,epoch)
+                utils.save_state(args.output_dir, epoch, loss.item(), accuracy,filename='losses.csv')
+
+
 
     elif args.algorithm == 'LAPLACIAN_REGULARIZATION':
 
@@ -272,6 +274,8 @@ def main(args):
         e, V = np.linalg.eig(L.cpu().detach().numpy())
         print('Connected Components', np.sum(e < 0.0001))
 
+        columns = ['Epoch', 'Loss', 'loss_cel','acc']
+        utils.create_csv(args.output_dir, 'losses.csv', columns)
         for epoch in range(args.epochs):
             optimizer.zero_grad()
             loss = F.mse_loss(net(X_lab), y_lab)
@@ -283,39 +287,41 @@ def main(args):
             optimizer.step()
             scheduler.step()
             if epoch % 1000 == 0:
-                print(epoch, loss)
-                fig, ax = plt.subplots()
-                ax.quiver(X_unlab[:,0].cpu(), X_unlab[:,1].cpu(), net(X_unlab).cpu().detach().numpy()[:,0], net(X_unlab).cpu().detach().numpy()[:,1],
-                          color="#ff0000")  # Blue Unlab
-                ax.quiver(X_lab[:,0].cpu(), X_lab[:,1].cpu(), net(X_lab).cpu().detach().numpy()[:,0], net(X_lab).cpu().detach().numpy()[:,1],
-                          color="#0000ff")
-                ax.plot(goal[0], goal[1], 'r*')
-                if args.dataset in ['Dijkstra_grid_window','Dijkstra_random_window']:
-                    ax.add_patch(Rectangle((10 - args.width, 0), 2 * args.width, 4,
-                                           edgecolor='black',
-                                           facecolor='black',
-                                           fill=True,
-                                           lw=5))
-
-                    ax.add_patch(Rectangle((10 - args.width, 6), 2 * args.width, 4,
-                                           edgecolor='black',
-                                           facecolor='black',
-                                           fill=True,
-                                           lw=5))
-                if args.dataset in ['Dijkstra_grid_maze']:
-                    ax.add_patch(Rectangle((5 - args.width, 3), 2 * args.width, 7,
-                                           edgecolor='black',
-                                           facecolor='black',
-                                           fill=True,
-                                           lw=5))
-
-                    ax.add_patch(Rectangle((15 - args.width, 0), 2 * args.width, 7,
-                                           edgecolor='black',
-                                           facecolor='black',
-                                           fill=True,
-                                           lw=5))
-                ax.plot(goal[0], goal[1], 'r*')
-                plt.savefig(args.output_dir + '/traj_generated'+str(epoch)+'.pdf')
+                # print(epoch, loss)
+                accuracy = navigation.eval_trajectories(net, X_test, args.width, goal, 0.2, 0.1, 20, args.dataset,device,X_unlab,X_lab,args.output_dir,epoch)
+                utils.save_state(args.output_dir, epoch, loss.item(),loss_cel.item(), accuracy,filename='losses.csv')
+                # fig, ax = plt.subplots()
+                # ax.quiver(X_unlab[:,0].cpu(), X_unlab[:,1].cpu(), net(X_unlab).cpu().detach().numpy()[:,0], net(X_unlab).cpu().detach().numpy()[:,1],
+                #           color="#ff0000")  # Blue Unlab
+                # ax.quiver(X_lab[:,0].cpu(), X_lab[:,1].cpu(), net(X_lab).cpu().detach().numpy()[:,0], net(X_lab).cpu().detach().numpy()[:,1],
+                #           color="#0000ff")
+                # ax.plot(goal[0], goal[1], 'r*')
+                # if args.dataset in ['Dijkstra_grid_window','Dijkstra_random_window']:
+                #     ax.add_patch(Rectangle((10 - args.width, 0), 2 * args.width, 4,
+                #                            edgecolor='black',
+                #                            facecolor='black',
+                #                            fill=True,
+                #                            lw=5))
+                #
+                #     ax.add_patch(Rectangle((10 - args.width, 6), 2 * args.width, 4,
+                #                            edgecolor='black',
+                #                            facecolor='black',
+                #                            fill=True,
+                #                            lw=5))
+                # if args.dataset in ['Dijkstra_grid_maze']:
+                #     ax.add_patch(Rectangle((5 - args.width, 3), 2 * args.width, 7,
+                #                            edgecolor='black',
+                #                            facecolor='black',
+                #                            fill=True,
+                #                            lw=5))
+                #
+                #     ax.add_patch(Rectangle((15 - args.width, 0), 2 * args.width, 7,
+                #                            edgecolor='black',
+                #                            facecolor='black',
+                #                            fill=True,
+                #                            lw=5))
+                # ax.plot(goal[0], goal[1], 'r*')
+                # plt.savefig(args.output_dir + '/traj_generated'+str(epoch)+'.pdf')
 
     elif args.algorithm == 'LIPSCHITZ_NO_RHO':
         columns = ['Epoch', 'Loss', 'Accuracy','MSE','mu_dual','laplacian']
@@ -355,7 +361,8 @@ def main(args):
                 print('mu',mu_dual.item())
                 print('norm lambda', torch.sum(lambda_dual).item())
                 print('------------------------------')
-                utils.save_state(args.output_dir, epoch, loss.item(), loss_MSE, mu_dual,torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f))) , filename='losses.csv')
+                accuracy = navigation.eval_trajectories(net, X_test, args.width, goal, 0.2, 0.1, 20, args.dataset,device,X_unlab,X_lab,args.output_dir,epoch)
+                utils.save_state(args.output_dir, epoch, loss.item(), loss_MSE, accuracy,mu_dual,torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f))) , filename='losses.csv')
             ############################################
             # Dual Update
             ############################################

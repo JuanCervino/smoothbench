@@ -90,7 +90,6 @@ def main(args):
 
     # Create Dataset
     [X_lab,y_lab,X_unlab,y_unlab], adj_matrix = navigation.create_dataset (args.dataset, args.n_dim, args.n_train, args.n_unlab, args.data_dir, args.width, args.resolution)
-    # toyexample.save_dataset(X_lab,y_lab,X_unlab,y_unlab, args.output_dir)
 
 
     plot = True
@@ -186,7 +185,7 @@ def main(args):
 
             plt.quiver(X_lab[:,0], X_lab[:,1], y_lab[:,0], y_lab[:,1], color="#0000ff")
             plt.savefig(args.output_dir+'/dataset.pdf')
-        elif args.dataset in ['Dijkstra_grid_maze']:
+        elif args.dataset in ['Dijkstra_grid_maze','Dijkstra_grid_maze_two_points']:
             plt.savefig(args.output_dir+'/grid.pdf')
             fig, ax = plt.subplots()
             ax.add_patch(Rectangle((5-args.width, 3), 2*args.width, 7,
@@ -232,7 +231,7 @@ def main(args):
     if args.dataset in ['window','center']:
         # net = FCNN().to(device) # 1 layer
         net = FCNN2().to(device) # 2 layers
-    elif args.dataset in ['Dijkstra_grid_window','Dijkstra_random_window','Dijkstra_grid_maze',]:
+    elif args.dataset in ['Dijkstra_grid_window','Dijkstra_random_window','Dijkstra_grid_maze','Dijkstra_grid_maze_two_points']:
         net = FCNN2(input_dim=2, hidden_dim=[2048,64]).to(device) # 1 layer
 
 
@@ -243,7 +242,7 @@ def main(args):
         momentum=args.momentum,
         weight_decay=args.weight_decay)
 
-    if args.dataset in ['Dijkstra_grid_window','Dijkstra_random_window','Dijkstra_grid_maze']:
+    if args.dataset in ['Dijkstra_grid_window','Dijkstra_random_window','Dijkstra_grid_maze','Dijkstra_grid_maze_two_points']:
         scheduler =  torch.optim.lr_scheduler.StepLR(optimizer, step_size=50000, gamma=0.8)
     # Train
     if args.algorithm == 'ERM':
@@ -259,9 +258,9 @@ def main(args):
             optimizer.step()
             scheduler.step()
             if epoch%1000 == 0:
-                print(epoch,loss)
+                # print(epoch,loss)
             # acc = accuracy(net, unlab_dataloader, 'cuda')
-            # utils.save_state(args.output_dir, epoch, loss.item(), acc, filename='losses.csv')
+                utils.save_state(args.output_dir, epoch, loss.item(), filename='losses.csv')
 
     elif args.algorithm == 'LAPLACIAN_REGULARIZATION':
 
@@ -319,11 +318,20 @@ def main(args):
                 plt.savefig(args.output_dir + '/traj_generated'+str(epoch)+'.pdf')
 
     elif args.algorithm == 'LIPSCHITZ_NO_RHO':
-
+        columns = ['Epoch', 'Loss', 'Accuracy','MSE','mu_dual','laplacian']
+        utils.create_csv(args.output_dir, 'losses.csv', columns)
 
         adj_matrix = torch.cdist(X_unlab,X_unlab).to(device)
+        L = laplacian.get_euclidean_laplacian_from_adj(adj_matrix, args.normalize, clamp_value=args.clamp).to(device)
+        # Plot graph
+        sparseL = scipy.sparse.coo_matrix(L.cpu())
+        fig, ax = plt.subplots()
+        for i, j, v in zip(sparseL.row, sparseL.col, sparseL.data):
+                arr = np.vstack((X_unlab[i, :].cpu(), X_unlab[j, :].cpu()))
+                plt.plot(arr[:, 0], arr[:, 1], 'b-')
+        ax.plot(X_unlab[:, 0].cpu(), X_unlab[:, 1].cpu(), '*')
+        plt.savefig(args.output_dir + '/laplacian'+str(args.heat_kernel_t)+'.pdf')
 
-        L = laplacian.get_euclidean_laplacian_from_adj(adj_matrix, args.normalize, clamp_value=0.01).to(device)
         lambda_dual = torch.ones(X_unlab.shape[0]) / X_unlab.shape[0]
         lambda_dual = lambda_dual.to(device).detach().requires_grad_(False)
         mu_dual = torch.Tensor(1).to(device).detach().requires_grad_(False)
@@ -331,26 +339,29 @@ def main(args):
         for epoch in range(args.epochs):
 
             optimizer.zero_grad()
-            loss = F.mse_loss(net(X_lab), y_lab)
-            loss_MSE = loss
+            loss = mu_dual *  F.mse_loss(net(X_lab), y_lab)
+            loss_MSE = loss.item()
             f = net(X_unlab)
-            loss += args.regularizer * torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f)))
+            loss += torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f)))
+            # loss += args.regularizer * torch.trace(torch.matmul((f).transpose(0,1),torch.matmul(L, f)))
 
             loss.backward()
             optimizer.step()
-            scheduler.step()
+            # scheduler.step()
 
             if epoch % 1000 == 0:
                 print('------------------------------')
-                print(epoch,loss_MSE.item(), loss.item(),torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))).item(),(args.regularizer*torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))).item())
+                print(epoch,loss_MSE, loss.item(), torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f))) )
                 print('mu',mu_dual.item())
                 print('norm lambda', torch.sum(lambda_dual).item())
                 print('------------------------------')
+                utils.save_state(args.output_dir, epoch, loss.item(), loss_MSE, mu_dual,torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f))) , filename='losses.csv')
             ############################################
             # Dual Update
             ############################################
             with torch.no_grad():
-                mu_dual = torch.nn.functional.relu(mu_dual + args.dual_step_mu * (F.mse_loss(net(X_lab), y_lab) - args.epsilon))
+                mu_dual = mu_dual + args.dual_step_mu * (F.mse_loss(net(X_lab), y_lab) - args.epsilon)
+                mu_dual = torch.clamp(mu_dual,0,2)
                 f_prime = net(X_unlab)
                 f_matrix= []
                 f_matrix.append([])
@@ -365,7 +376,7 @@ def main(args):
                 lambda_dual = F.relu(lambda_dual + args.dual_step_mu*(grads))
 
                 # Juan Needs to Correct This
-                lambda_dual = 1*lambda_dual/torch.sum(lambda_dual).item()
+                lambda_dual = lambda_dual/torch.sum(lambda_dual).item()
 
             if epoch % 1000 == 0:
                 print(epoch, loss)
@@ -401,6 +412,20 @@ def main(args):
                                            lw=5))
                 ax.plot(goal[0], goal[1], 'r*')
                 plt.savefig(args.output_dir + '/traj_generated'+str(epoch)+'.pdf')
+                fig, ax = plt.subplots()
+                x = np.linspace(0, 20, 2 * args.n_train - 1)
+                y = np.linspace(0, 10, args.n_train)
+                # full coorindate arrays
+                xx, yy = np.meshgrid(x, y)
+                grid = torch.Tensor(np.c_[xx.ravel(), yy.ravel()]).to('cuda')
+                max_lambda = np.max(lambda_dual.detach().cpu().numpy())
+                lambdas = 60 * lambda_dual.detach().cpu().numpy() / max_lambda
+                colors = np.array(
+                    ["#377eb8", "#ff7f00", "#4daf4a"]
+                )
+                plt.scatter(X_unlab[:, 0].detach().cpu().numpy(), X_unlab[:, 1].detach().cpu().numpy(), s=lambdas)
+                plt.savefig(args.output_dir + '/lambdas'+str(epoch)+'.pdf')
+
 
     # print(F.mse_loss(net(X_lab), y_lab))
     # Evaluate in a couple of trajectories
@@ -410,7 +435,7 @@ def main(args):
 
     if args.dataset in ['window','center']:
         time_step = 4 / args.n_train
-    elif args.dataset in ['Dijkstra_random_window','Dijkstra_grid_window','Dijkstra_grid_maze']:
+    elif args.dataset in ['Dijkstra_random_window','Dijkstra_grid_window','Dijkstra_grid_maze','Dijkstra_grid_maze_two_points']:
         time_step = 0.1
 
 
@@ -441,7 +466,7 @@ def main(args):
         if args.dataset in ['window','center']:
             ax.quiver(trajs[i][:,0], trajs[i][:, 1], trajs[i][:, 2], trajs[i][:, 3], color="#0000ff")  # Blue Velocity
             ax.quiver(trajs[i][:, 0], trajs[i][:, 1], accelerations[i][:, 0], accelerations[i][:, 1], color="#ff0000")  # Red Accelaration
-        elif args.dataset in ['Dijkstra_random_window', 'Dijkstra_grid_window','Dijkstra_grid_maze']:
+        elif args.dataset in ['Dijkstra_random_window', 'Dijkstra_grid_window','Dijkstra_grid_maze','Dijkstra_grid_maze_two_points']:
             ax.quiver(X_unlab[:,0].cpu(), X_unlab[:,1].cpu(), net(X_unlab).cpu().detach().numpy()[:,0], net(X_unlab).cpu().detach().numpy()[:,1],
                       color="#ff0000")  # Blue Unlab
             ax.quiver(X_lab[:,0].cpu(), X_lab[:,1].cpu(), net(X_lab).cpu().detach().numpy()[:,0], net(X_lab).cpu().detach().numpy()[:,1],
@@ -500,17 +525,19 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_neurons', type=int, default=64)
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--momentum', type=float, default=0.)
-    parser.add_argument('--weight_decay', type=float, default=0.999)
+    parser.add_argument('--weight_decay', type=float, default=0.9)
 
     parser.add_argument('--resolution', type=float, default=0.4)
     parser.add_argument('--width', type=float, default=1.)
 
 
 
-    parser.add_argument('--dual_step_mu', type=float, default=0.)
-    parser.add_argument('--dual_step_lambda', type=float, default=0.)
+    parser.add_argument('--dual_step_mu', type=float, default=0.01)
+    parser.add_argument('--dual_step_lambda', type=float, default=0.1)
     parser.add_argument('--rho_step', type=float, default=0.)
-    parser.add_argument('--epsilon', type=float, default=0.1)
+    parser.add_argument('--epsilon', type=float, default=1)
+    parser.add_argument('--clamp', type=float, default=0.4)
+
 
     args = parser.parse_args()
 

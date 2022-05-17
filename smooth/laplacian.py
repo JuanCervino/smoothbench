@@ -48,10 +48,10 @@ def get_laplacian(imgs, normalize = False, heat_kernel_t = 10, clamp_value=None)
         pairwise distance: (batch_size, num_points, num_points)
     """
     adj_matrix = get_pairwise_distance_matrix(imgs, heat_kernel_t)
-    # Remove small values
+    # Remove large values
     if clamp_value!=None:
         zero_tensor = torch.zeros(adj_matrix.size()).to('cuda')
-        adj_matrix = torch.where(adj_matrix > clamp_value, adj_matrix, zero_tensor)
+        adj_matrix = torch.where(adj_matrix < clamp_value, adj_matrix, zero_tensor)
 
     if normalize:
         D = torch.sum(adj_matrix, axis=1)  # (batch_size,num_points)
@@ -77,8 +77,9 @@ def get_laplacian_from_adj(adj_matrix, normalize = False, heat_kernel_t = 10, cl
     adj_matrix = adj_matrix.fill_diagonal_(0) # Delete the diagonal elements
 
     if clamp_value!=None:
+        # remove large values
         zero_tensor = torch.zeros(adj_matrix.size()).to('cuda')
-        adj_matrix = torch.where(adj_matrix > clamp_value, adj_matrix, zero_tensor)
+        adj_matrix = torch.where(adj_matrix < clamp_value, adj_matrix, zero_tensor)
 
     if normalize:
         D = torch.sum(adj_matrix, axis=1)  # (batch_size,num_points)
@@ -105,7 +106,7 @@ def get_euclidean_laplacian_from_adj(adj_matrix, normalize = False, clamp_value=
 
     if clamp_value!=None:
         zero_tensor = torch.zeros(adj_matrix.size()).to('cuda')
-        adj_matrix = torch.where(adj_matrix > clamp_value, adj_matrix, zero_tensor)
+        adj_matrix = torch.where(adj_matrix < clamp_value, adj_matrix, zero_tensor)
 
     if normalize:
         D = torch.sum(adj_matrix, axis=1)  # (batch_size,num_points)

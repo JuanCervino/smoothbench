@@ -4,13 +4,14 @@ import cvxpy as cp
 import pickle,os
 import scipy
 from matplotlib.patches import Rectangle
+import torch
 
 # x_center,y_i,y_f
 def sample_out_maze(sample, width, tolerance):
     out = True
-    if sample[0] < 5+width+tolerance and sample[0] > 5-width-tolerance and sample[1] > 3 - tolerance:
+    if sample[0] < 5+width+tolerance and sample[0] > 5-width-tolerance*0.5 and sample[1] > 3 - tolerance:
         out = False
-    if sample[0] < 15+width+tolerance and sample[0] > 15-width-tolerance and sample[1] < 7 +tolerance:
+    if sample[0] < 15+width+tolerance and sample[0] > 15-width-tolerance*0.5 and sample[1] < 7 +tolerance:
         out = False
     return out
 
@@ -135,13 +136,13 @@ def generate_trajectory(start, goal, intermediate_points, degree_poly, total_tim
 
 # def generate_dijkstra():
 
-def create_dataset(dataset, n_dim, n_train, n_unlab,  data_dir, width, resolution=0.4):
+def create_dataset(dataset, n_dim, n_train, n_unlab,  data_dir, width, resolution=0.4, n_test=100):
 
-    assert dataset in ['window','center','Dijkstra_grid_window','Dijkstra_grid_maze']
-    file_name = '/'+dataset+'_train'+str(n_train)+'_unlab'+str(n_unlab)+'_noise'+str(width)+'.p'
+    assert dataset in ['window','center','Dijkstra_grid_window','Dijkstra_grid_maze','Dijkstra_grid_maze_two_points','Dijkstra_grid_window']
+    file_name = '/'+dataset+'_train'+str(n_train)+'_unlab'+str(n_unlab)+'_width'+str(width)+'.p'
 
     total_time = 4
-
+    # Train Set
     if os.path.exists(data_dir+file_name):
         # [X_lab,y_lab,X_unlab, y_unlab] = pickle.load(data_dir+file_name)
         with open(data_dir+file_name, 'rb') as pickle_file:
@@ -492,7 +493,7 @@ def create_dataset(dataset, n_dim, n_train, n_unlab,  data_dir, width, resolutio
             # print(graph.shape)
 
             for sample in range(graph.shape[0]):
-                if not ((graph[sample, 0] < 10 - (width + resolution) or graph[sample, 0] > 10 + (
+                if not ((graph[sample, 0] < 10 - (width + resolution*0.5) or graph[sample, 0] > 10 + (
                         width + resolution)) or (
                                 graph[sample, 1] > (4 + resolution) and graph[sample, 1] < (6 - resolution))):
                     list_of_delete = list_of_delete + [sample]
@@ -682,14 +683,172 @@ def create_dataset(dataset, n_dim, n_train, n_unlab,  data_dir, width, resolutio
             X_unlab = graph_unlab
             y_unlab = None
 
-        return [X_lab, y_lab, X_unlab, y_unlab], adj_matrix
+        elif dataset == 'Dijkstra_grid_maze_two_points':
+
+            # Construct graph
+            x = np.linspace(0, 20, 2 * n_train - 1)
+            y = np.linspace(0, 10, n_train)
+            # full coorindate arrays
+            xx, yy = np.meshgrid(x, y)
+            graph_unlab = np.column_stack((xx.flatten(), yy.flatten()))
+            list_of_delete = []
+            # print(graph.shape)
+
+            for sample in range(graph_unlab.shape[0]):
+                if not sample_out_maze(graph_unlab[sample, :], width, resolution):
+                    list_of_delete = list_of_delete + [sample]
+
+            graph_unlab = np.delete(graph_unlab, list_of_delete, axis=0)
 
 
+            # x = np.linspace(2.5, 17.5, 5)
+            # y = np.linspace(1, 10, 8)
+            # xx, yy = np.meshgrid(x, y)
+            #
+            # start_points = np.column_stack((xx.flatten(), yy.flatten()))
+            start_points = [[1,9],[14,1]]
+            stop = np.array([19, 1])
+            X_lab = []
+            for count, start in enumerate(start_points):
+                # Add Start And Stop
+            # print(start)
+                start = np.array(start)
+                graph = np.vstack((start, graph_unlab, stop))
+                matrix_graph = scipy.spatial.distance.cdist(graph, graph)
+
+                matrix_graph = np.where(
+                    matrix_graph > 0.01 + np.sqrt((10 / (n_train - 1)) ** 2 + (10 / (n_train - 1)) ** 2), 0,
+                    matrix_graph)
+                # matrix_graph = np.where(matrix_graph > 2.5, 0, matrix_graph)
+
+                matrix_graph = scipy.sparse.csr_matrix(matrix_graph)
+                # list_of_delete = []
+                # # print(graph.shape)
+                #
+                # for sample in range(graph.shape[0]):
+                #    if not sample_out_maze(graph[sample,:],width,resolution):
+                #        list_of_delete = list_of_delete + [sample]
+                #
+                #
+                # graph = np.delete(graph, list_of_delete, axis=0)
+                # matrix_graph = scipy.spatial.distance.cdist(graph_unlab, graph_unlab)
+                # matrix_graph= np.where(
+                #     matrix_graph> 0.01 + np.sqrt((10 / (n_train - 1)) ** 2 + (10 / (n_train - 1)) ** 2), 0, matrix_graph)
+                # # matrix_graph = np.where(matrix_graph > 2.5, 0, matrix_graph)
+                #
+                # matrix_graph= scipy.sparse.csr_matrix(matrix_graph)
+                _, predecessors = scipy.sparse.csgraph.dijkstra(csgraph=matrix_graph, directed=False, indices=0,
+                                                                return_predecessors=True)
+                adj_matrix, _ = scipy.sparse.csgraph.dijkstra(csgraph=matrix_graph, directed=False,
+                                                              return_predecessors=True)
+
+                cx = scipy.sparse.coo_matrix(matrix_graph)
+                if count == 0:
+                    fig, ax = plt.subplots()
+                    ax.add_patch(Rectangle((5-width, 3), 2*width, 7,
+                                           edgecolor='black',
+                                           facecolor='black',
+                                           fill=True,
+                                           lw=5))
+
+                    ax.add_patch(Rectangle((15-width, 0), 2*width, 7,
+                                           edgecolor='black',
+                                           facecolor='black',
+                                           fill=True,
+                                           lw=5))
+                    for i, j, v in zip(cx.row, cx.col, cx.data):
+                        arr = np.vstack((graph[i, :], graph[j, :]))
+                        plt.plot(arr[:, 0], arr[:, 1], 'b-')
+                    plt.plot(graph[:, 0], graph[:, 1], '*')
+
+                path = [len(predecessors) - 1]
+                item = predecessors[-1]
+                path = path + [item]
+                while item != 0:
+                    item = predecessors[item]
+                    path = path + [item]
+
+                plt.plot(graph[path, 0], graph[path, 1], 'r')
+
+                plt.plot(graph[0, 0], graph[0, 1], 'r*')
+                plt.plot(graph[-1, 0], graph[-1, 1], 'ro')
+
+            # plt.show()
+                if X_lab == []:
+                    X_lab = np.array(graph[path[1:], :])
+                    y_lab = np.array(graph[path[:-1]] - graph[path[1:]]) / 0.1
+                else:
+                    X_lab = np.vstack((X_lab,np.array(graph[path[1:], :])))
+                    y_lab = np.vstack((y_lab,np.array(graph[path[:-1]] - graph[path[1:]]) / 0.1 ))
+            X_unlab = graph_unlab
+            y_unlab = None
+
+        # Save Dataset
+        pickle.dump([X_lab, y_lab, X_unlab, y_unlab], open(data_dir+file_name, "wb"))
 
 
+        # Test Set
+        file_name = '/'+dataset+'_test'+str(n_train)+'_unlab'+str(n_unlab)+'_width'+str(width)+'.p'
+        if os.path.exists(data_dir + file_name):
+            with open(data_dir+file_name, 'rb') as pickle_file:
+                [X_test] = pickle.load(pickle_file)
+        else:
+            weights = np.array([20, 10])
+            X_test = None
+            for sample in range(n_test):
+                s = np.multiply(np.random.uniform(0, 1, 2), weights)
+                while not not sample_out_maze(s, width, 0.2):
+                    s = np.multiply(np.random.uniform(0, 1, 2), weights)
+                    if X_test == None:
+                        X_test = s
+                    else:
+                        X_test = np.vstack((s, X_test))
+            pickle.dump([X_test], open(data_dir + file_name, "wb"))
+
+        return [X_lab, y_lab, X_unlab, y_unlab], adj_matrix, X_test
 
 
+def eval_trajectories(net, initials, width, goal, radius, time_step, total_time, dataset,device,X_unlab,X_lab,output_dir,name):
+    assert dataset in ['Dijkstra_grid_maze_two_points']
+    trajs = [np.array([]) for i in range(len(initials))]
+    vels = [np.array([]) for i in range(len(initials))]
+    if dataset == 'Dijkstra_grid_maze_two_points':
+        successful_trials = 0
+        fig, ax = plt.subplots()
 
+        for i, init in enumerate(initials):
+            state = np.array(init)
+            trajs[i] = state
+            for t in range(int(total_time / time_step)):
+                with torch.no_grad():
+                    acc = net(torch.Tensor(state).to(device)).cpu().detach().numpy()
+                state = step(state, acc, time_step)
+                if len(vels[i]) == 0:
+                    vels[i] = acc
+
+                trajs[i] = np.vstack((trajs[i], state))
+                vels[i] = np.vstack((vels[i], acc))
+                if not sample_out_maze(state, width, 0):
+                    break
+                if np.linalg.norm(state-goal)<radius:
+                    successful_trials = successful_trials + 1
+
+            # fig, ax = plt.subplots()
+            plt.plot(trajs[i][:, 0], trajs[i][:, 1], '.-')
+
+            ax.plot(goal[0], goal[1], 'r*')
+            ax.plot(initials[i][0], initials[i][1], 'g*')
+            ax.quiver(X_unlab[:, 0].cpu(), X_unlab[:, 1].cpu(), net(X_unlab).cpu().detach().numpy()[:, 0],
+                      net(X_unlab).cpu().detach().numpy()[:, 1],
+                      color="#ff0000")  # Blue Unlab
+            ax.quiver(X_lab[:, 0].cpu(), X_lab[:, 1].cpu(), net(X_lab).cpu().detach().numpy()[:, 0],
+                      net(X_lab).cpu().detach().numpy()[:, 1],
+                      color="#0000ff")  # Blue Lab
+            ax.plot(initials[i][0], initials[i][1], 'g*')
+        plt.grid(True)
+        plt.xlim(0, 20)
+        plt.ylim(0, 10)
+        plt.savefig(output_dir + '/traj_generated_all'+str(name)+'_'+str(successful_trials/len(initials))+'.pdf')
 
 
 

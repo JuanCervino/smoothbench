@@ -285,7 +285,7 @@ def main(args):
         for epoch in range(args.epochs):
             optimizer.zero_grad()
             loss = F.mse_loss(net(X_lab), y_lab)
-            loss_cel = loss
+            loss_cel = loss.item()
             f = net(X_unlab)
             loss += args.regularizer * torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))
             loss.backward()
@@ -294,7 +294,7 @@ def main(args):
             if epoch % 1000 == 0:
                 # print(epoch, loss)
                 accuracy = navigation.eval_trajectories(net, X_test, args.width, goal, args.radius, 0.1, 20, args.dataset,device,X_unlab,X_lab,args.output_dir,epoch,False)
-                utils.save_state(args.output_dir, epoch, loss.item(),loss_cel.item(), accuracy,filename='losses.csv')
+                utils.save_state(args.output_dir, epoch, loss.item(),loss_cel, accuracy,filename='losses.csv')
                 if best_acc < accuracy:
                     best_acc = accuracy
                     _ = navigation.eval_trajectories(net, X_test, args.width, goal, args.radius, 0.1, 20, args.dataset, device,

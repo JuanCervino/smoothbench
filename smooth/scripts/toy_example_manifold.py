@@ -322,9 +322,25 @@ def main(args):
         best_so_far = 0
 
         adj_matrix = torch.cdist(X_unlab, X_unlab)
-        L = laplacian.get_laplacian(X_unlab,  True, heat_kernel_t=args.heat_kernel_t, clamp_value = 0.001).to(device)
+        # L = laplacian.get_laplacian(X_unlab,  True, heat_kernel_t=args.heat_kernel_t, clamp_value = 0.001).to(device)
+        L = laplacian.get_laplacian(X_unlab,  True, heat_kernel_t=args.heat_kernel_t, clamp_value = 0.1).to(device)
+
         e, V = np.linalg.eig(L.cpu().detach().numpy())
         print('Connected Components', np.sum(e < 0.0001))
+
+        sparseL = scipy.sparse.coo_matrix(L.cpu())
+        fig, ax = plt.subplots()
+        for i, j, v in zip(sparseL.row, sparseL.col, sparseL.data):
+            arr = np.vstack((X_unlab[i, :].cpu(), X_unlab[j, :].cpu()))
+            plt.plot(arr[:, 0], arr[:, 1], 'b-')
+        ax.plot(X_unlab[:, 0].cpu(), X_unlab[:, 1].cpu(), 'og')
+        ax.plot(X_lab[0, 0].cpu(), X_lab[0, 1].cpu(), 'D', c='tab:blue')
+        ax.plot(X_lab[1, 0].cpu(), X_lab[1, 1].cpu(), 'D', c='tab:orange')
+
+
+        plt.savefig(args.output_dir + '/laplacian' + str(args.heat_kernel_t) + '.pdf')
+
+
 
         lambda_dual = torch.ones(len(y_unlab)) / len(y_unlab)
         lambda_dual = lambda_dual.to(device).detach().requires_grad_(False)
@@ -403,6 +419,10 @@ def main(args):
                 # Project
 
                 lambda_dual = lambda_dual/torch.sum(lambda_dual).item()
+                # lambda_dual_projected = toyexample.projsplx(lambda_dual.cpu().detach().numpy())
+                # lambda_dual = torch.tensor(lambda_dual_projected).to(device)
+                # lambda_dual = lambda_dual/torch.sum(lambda_dual).item()
+
                 # print('norm lambda',torch.sum(lambda_dual))
                 #
                 # lambda_dual = 100*laplacian.projsplx(lambda_dual.cpu()).to(device)

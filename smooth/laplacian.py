@@ -51,7 +51,7 @@ def get_laplacian(imgs, normalize = False, heat_kernel_t = 10, clamp_value=None)
     # Remove large values
     if clamp_value!=None:
         zero_tensor = torch.zeros(adj_matrix.size()).to('cuda')
-        adj_matrix = torch.where(adj_matrix < clamp_value, adj_matrix, zero_tensor)
+        adj_matrix = torch.where(adj_matrix > clamp_value, adj_matrix, zero_tensor)
 
     if normalize:
         D = torch.sum(adj_matrix, axis=1)  # (batch_size,num_points)
@@ -124,7 +124,7 @@ def get_euclidean_laplacian_from_adj(adj_matrix, normalize = False, clamp_value=
 
 
 def projsplx(tensor):
-    hk1 = np.argsort(tensor.detach())
+    hk1 = np.argsort(tensor)
     vals = tensor[hk1]
     n = len(vals)
     Flag = True

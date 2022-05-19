@@ -18,6 +18,7 @@ def create_dataset(dataset, n_dim, n_train, n_unlab, n_test, noise, data_dir):
 
     if os.path.exists(data_dir+file_name):
         # [X_lab,y_lab,X_unlab, y_unlab] = pickle.load(data_dir+file_name)
+        print('Loading Dataset')
         with open(data_dir+file_name, 'rb') as pickle_file:
             [X_lab,y_lab,X_unlab, y_unlab] = pickle.load(pickle_file)
     else:
@@ -38,7 +39,7 @@ def save_dataset(X_lab,y_lab,X_unlab,y_unlab,dir):
     plt.xlim(-1.5,2.5)
     plt.ylim(-1,1.5)
     plt.grid(True)
-    plt.axis('equal')
+    plt.axis('scaled')
     plt.savefig(dir+'/dataset.pdf')
     plt.close()
     pickle.dump([X_lab,y_lab,X_unlab,y_unlab], open(dir + "/dataset.p", "wb"))
@@ -54,7 +55,7 @@ def save_output(X_lab,y_lab,X_unlab,y_unlab,dir,name=None):
     plt.xlim(-1.5,2.5)
     plt.ylim(-1,1.5)
     plt.grid(True)
-    plt.axis('equal')
+    plt.axis('scaled')
     if name!=None:
         plt.savefig(dir+'/output'+str(name)+'.pdf')
     else:
@@ -93,7 +94,7 @@ def save_output_allspace(net,X_lab,y_lab,X_unlab,y_unlab,dir,name=None):
     plt.ylim(-1,1.5)
 
     plt.grid(True)
-    plt.axis('equal')
+    plt.axis('scaled')
     if name!=None:
         plt.savefig(dir+'/output'+str(name)+'.pdf')
     else:
@@ -115,7 +116,7 @@ def save_lambdas(X_lab,y_lab,X_unlab,y_unlab,lambdas,dir,name=None):
     plt.xlim(-1.5,2.5)
     plt.ylim(-1,1.5)
     plt.grid(True)
-    plt.axis('equal')
+    plt.axis('scaled')
     if name!=None:
         plt.savefig(dir+'/lambdas'+str(name)+'.pdf')
     else:
@@ -150,7 +151,7 @@ def save_lambdas_all_space(net, X_lab,y_lab,X_unlab,y_unlab,lambdas,dir,name=Non
 
     # plt.figure()
     max_lambda = np.max(lambdas)
-    lambdas = 60 * lambdas/max_lambda
+    lambdas = 100 * lambdas/max_lambda
     CS = plt.contourf(xx, yy,z,cmap ='RdGy', vmin=0., vmax=1., levels = np.linspace(0,1,15))
 
     plt.scatter(X_lab[:, 0], X_lab[:, 1], s=30, marker='^', color=colors[y_lab])
@@ -173,3 +174,22 @@ def save_lambdas_all_space(net, X_lab,y_lab,X_unlab,y_unlab,lambdas,dir,name=Non
     else:
         pickle.dump([X_lab,y_lab,X_unlab,y_unlab,lambdas], open(dir + "/lambdas"+str(name)+".p", "wb"))
     pass
+
+def projsplx(tensor):
+    hk1 = np.argsort(tensor)
+    vals = tensor[hk1]
+    n = len(vals)
+    Flag = True
+    i = n -1
+    while Flag:
+        ti = (np.sum(vals[i+1:]) -1)/(n - i)
+        if ti >= vals[i]:
+            Flag = False
+            that = ti
+        else:
+            i = i-1
+        if i == 0:
+            Flag = False
+            that = (np.sum(vals) -1)/n
+    vals = np.where((vals - that)> 0, (vals - that), 0)
+    return vals[np.argsort(hk1)]

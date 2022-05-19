@@ -152,13 +152,16 @@ def save_lambdas_all_space(net, X_lab,y_lab,X_unlab,y_unlab,lambdas,dir,name=Non
     max_lambda = np.max(lambdas)
     lambdas = 60 * lambdas/max_lambda
     CS = plt.contourf(xx, yy,z,cmap ='RdGy', vmin=0., vmax=1., levels = np.linspace(0,1,15))
-    plt.colorbar(CS)
+
     plt.scatter(X_lab[:, 0], X_lab[:, 1], s=30, marker='^', color=colors[y_lab])
     plt.scatter(X_unlab[:, 0], X_unlab[:, 1], s=lambdas, color=colors[y_unlab])
+    # plt.axis('scaled')
     plt.xlim(-1.5,2.5)
     plt.ylim(-1,1.5)
+    plt.colorbar(CS)
+    plt.axis('scaled')
     plt.grid(True)
-    plt.axis('equal')
+
     if name!=None:
         plt.savefig(dir+'/lambdas'+str(name)+'.pdf')
     else:

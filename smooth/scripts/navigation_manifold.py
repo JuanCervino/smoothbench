@@ -267,6 +267,40 @@ def main(args):
                     _ = navigation.eval_trajectories(net, X_test, args.width, goal, args.radius, 0.1, 20,
                                                             args.dataset, device, X_unlab, X_lab, args.output_dir,
                                                             epoch, True)
+                    fig, ax = plt.subplots()
+                    ax.quiver(X_unlab[:, 0].cpu(), X_unlab[:, 1].cpu(), net(X_unlab).cpu().detach().numpy()[:, 0],
+                              net(X_unlab).cpu().detach().numpy()[:, 1],
+                              color="#ff0000")  # Blue Unlab
+                    ax.quiver(X_lab[:, 0].cpu(), X_lab[:, 1].cpu(), net(X_lab).cpu().detach().numpy()[:, 0],
+                              net(X_lab).cpu().detach().numpy()[:, 1],
+                              color="#0000ff")
+                    ax.plot(goal[0], goal[1], 'r*')
+                    if args.dataset in ['Dijkstra_grid_window', 'Dijkstra_random_window']:
+                        ax.add_patch(Rectangle((10 - args.width, 0), 2 * args.width, 4,
+                                               edgecolor='black',
+                                               facecolor='black',
+                                               fill=True,
+                                               lw=5))
+
+                        ax.add_patch(Rectangle((10 - args.width, 6), 2 * args.width, 4,
+                                               edgecolor='black',
+                                               facecolor='black',
+                                               fill=True,
+                                               lw=5))
+                    if args.dataset in ['Dijkstra_grid_maze']:
+                        ax.add_patch(Rectangle((5 - args.width, 3), 2 * args.width, 7,
+                                               edgecolor='black',
+                                               facecolor='black',
+                                               fill=True,
+                                               lw=5))
+
+                        ax.add_patch(Rectangle((15 - args.width, 0), 2 * args.width, 7,
+                                               edgecolor='black',
+                                               facecolor='black',
+                                               fill=True,
+                                               lw=5))
+                    ax.plot(goal[0], goal[1], 'r*')
+                    plt.savefig(args.output_dir + '/traj_generated' + str(accuracy) + 'epoch' + str(epoch) + '.pdf')
 
 
 
@@ -299,6 +333,40 @@ def main(args):
                     best_acc = accuracy
                     _ = navigation.eval_trajectories(net, X_test, args.width, goal, args.radius, 0.1, 20, args.dataset, device,
                                                  X_unlab, X_lab, args.output_dir, epoch, True)
+                    fig, ax = plt.subplots()
+                    ax.quiver(X_unlab[:, 0].cpu(), X_unlab[:, 1].cpu(), net(X_unlab).cpu().detach().numpy()[:, 0],
+                              net(X_unlab).cpu().detach().numpy()[:, 1],
+                              color="#ff0000")  # Blue Unlab
+                    ax.quiver(X_lab[:, 0].cpu(), X_lab[:, 1].cpu(), net(X_lab).cpu().detach().numpy()[:, 0],
+                              net(X_lab).cpu().detach().numpy()[:, 1],
+                              color="#0000ff")
+                    ax.plot(goal[0], goal[1], 'r*')
+                    if args.dataset in ['Dijkstra_grid_window', 'Dijkstra_random_window']:
+                        ax.add_patch(Rectangle((10 - args.width, 0), 2 * args.width, 4,
+                                               edgecolor='black',
+                                               facecolor='black',
+                                               fill=True,
+                                               lw=5))
+
+                        ax.add_patch(Rectangle((10 - args.width, 6), 2 * args.width, 4,
+                                               edgecolor='black',
+                                               facecolor='black',
+                                               fill=True,
+                                               lw=5))
+                    if args.dataset in ['Dijkstra_grid_maze']:
+                        ax.add_patch(Rectangle((5 - args.width, 3), 2 * args.width, 7,
+                                               edgecolor='black',
+                                               facecolor='black',
+                                               fill=True,
+                                               lw=5))
+
+                        ax.add_patch(Rectangle((15 - args.width, 0), 2 * args.width, 7,
+                                               edgecolor='black',
+                                               facecolor='black',
+                                               fill=True,
+                                               lw=5))
+                    ax.plot(goal[0], goal[1], 'r*')
+                    plt.savefig(args.output_dir + '/traj_generated' + str(accuracy) + 'epoch' + str(epoch) + '.pdf')
 
     elif args.algorithm == 'LIPSCHITZ_NO_RHO':
         columns = ['Epoch', 'Loss', 'Accuracy','MSE','mu_dual','laplacian']

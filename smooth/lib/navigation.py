@@ -831,15 +831,15 @@ def eval_trajectories(net, initials, width, goal, radius, time_step, total_time,
                 trajs[i] = np.vstack((trajs[i], state_new))
                 vels[i] = np.vstack((vels[i], acc))
 
-                if (state[0]<5-width and state_new[0]>=5-width and (state[1]>=3 or state_new[1]>=3)) \
-                    or (state_new[0] < 5 - width and state[0] >= 5 - width and (state[1] >= 3 or state_new[1] >= 3)) \
-                    or (state[0] < 5 + width and state_new[0] >= 5 + width and (state[1] >= 3 or state_new[1] >= 3)) \
-                    or (state_new[0] < 5 + width and state[0] >= 5 + width and (state[1] >= 3 or state_new[1] >= 3)) \
-                    or (state[0] < 15 - width and state_new[0] >= 15 - width and (state[1] <= 7 or state_new[1] <= 7)) \
-                    or (state_new[0] < 15 - width and state[0] >= 15 - width and (state[1] <= 7 or state_new[1] <= 7)) \
-                    or (state[0] < 15 + width and state_new[0] >= 15 + width and (state[1] <= 7 or state_new[1] <= 7)) \
-                    or (state_new[0] < 15 + width and state[0] >= 15 + width and (state[1] <= 7 or state_new[1] <= 7)) \
-                    or state[0] > 20 or state[0]<0 or state[1]>10 or state[1]<0 \
+                if (state[0]<=5-width and state_new[0]>=5-width and (state[1]>=3 or state_new[1]>=3)) \
+                    or (state_new[0] <= 5 - width and state[0] >= 5 - width and (state[1] >= 3 or state_new[1] >= 3)) \
+                    or (state[0] <= 5 + width and state_new[0] >= 5 + width and (state[1] >= 3 or state_new[1] >= 3)) \
+                    or (state_new[0] <= 5 + width and state[0] >= 5 + width and (state[1] >= 3 or state_new[1] >= 3)) \
+                    or (state[0] <= 15 - width and state_new[0] >= 15 - width and (state[1] <= 7 or state_new[1] <= 7)) \
+                    or (state_new[0] <= 15 - width and state[0] >= 15 - width and (state[1] <= 7 or state_new[1] <= 7)) \
+                    or (state[0] <= 15 + width and state_new[0] >= 15 + width and (state[1] <= 7 or state_new[1] <= 7)) \
+                    or (state_new[0] <= 15 + width and state[0] >= 15 + width and (state[1] <= 7 or state_new[1] <= 7)) \
+                    or state[0] >= 20 or state[0]<=0 or state[1]>=10 or state[1]<=0 \
                     or np.linalg.norm(state-goal)<radius:
                     break
 
@@ -900,13 +900,13 @@ def eval_trajectories(net, initials, width, goal, radius, time_step, total_time,
                           color="#0000ff")  # Blue Lab
                 ax.plot(initials[i][0], initials[i][1], 'g*')
         if plot:
-            ax.add_patch(Rectangle((5 - 2*width, 3), 2 * width, 7,
+            ax.add_patch(Rectangle((5 - width, 3), 2 * width, 7,
                                    edgecolor='black',
                                    facecolor='black',
                                    fill=True,
                                    lw=5))
 
-            ax.add_patch(Rectangle((15 - 2*width, 0), 2 * width, 7,
+            ax.add_patch(Rectangle((15 - width, 0), 2 * width, 7,
                                    edgecolor='black',
                                    facecolor='black',
                                    fill=True,

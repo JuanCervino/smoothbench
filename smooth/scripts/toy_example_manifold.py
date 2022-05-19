@@ -86,6 +86,7 @@ def main(args):
         lr=args.lr,
         momentum=args.momentum,
         weight_decay=args.weight_decay)
+    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1000, gamma=0.8)
     # Train
     if args.algorithm == 'ERM':
 
@@ -335,17 +336,17 @@ def main(args):
             # Primal Update
             ############################################
             optimizer.zero_grad()
-            loss = F.cross_entropy(net(X_lab), y_lab)
-            loss_cel = loss
-            loss = mu_dual *loss
-
+            loss = mu_dual *  F.cross_entropy(net(X_lab), y_lab)
+            loss_cel = loss.item()
             f = F.softmax(net(X_unlab))
-            loss += args.regularizer * torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f)))
+            loss +=  10*torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f)))
 
             # print(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))
             loss.backward()
 
             optimizer.step()
+            # scheduler.step()
+            #
             acc = accuracy(net,unlab_dataloader,'cuda')
             if acc > best_so_far:
                 best_so_far = acc
@@ -365,9 +366,10 @@ def main(args):
 
 
 
-            utils.save_state(args.output_dir, epoch, loss_cel.item(),args.regularizer * torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f))).item() ,torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))).item(),acc , filename = 'losses.csv')
+            utils.save_state(args.output_dir, epoch, loss_cel,torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f))),torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))).item(),acc , filename = 'losses.csv')
             print('------------------------------')
-            print(epoch,loss_cel.item(), torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f))).item(),(args.regularizer*torch.trace(torch.matmul(f.transpose(0,1),torch.matmul(L, f)))).item(),acc)
+            with torch.no_grad():
+                print(epoch,loss_cel, F.cross_entropy(net(X_lab), y_lab), torch.trace(torch.matmul((torch.diag(lambda_dual)@f).transpose(0,1),torch.matmul(L, f))),acc)
             print('mu',mu_dual.item())
             print('norm lambda', torch.sum(lambda_dual).item())
             print('------------------------------')
@@ -383,7 +385,8 @@ def main(args):
             # Dual Update
             ############################################
             with torch.no_grad():
-                mu_dual = torch.nn.functional.relu(mu_dual + args.dual_step_mu * (F.cross_entropy(net(X_lab), y_lab) - args.epsilon))
+                # mu_dual = torch.nn.functional.relu(mu_dual + args.dual_step_mu * (F.cross_entropy(net(X_lab), y_lab) - args.epsilon))
+                mu_dual = torch.clamp(mu_dual + args.dual_step_mu * (F.cross_entropy(net(X_lab), y_lab) - args.epsilon),0,1)
                 f_prime = F.softmax(net(X_unlab))
                 f_matrix= []
                 f_matrix.append([])
@@ -399,7 +402,7 @@ def main(args):
                 lambda_dual = F.relu(lambda_dual + args.dual_step_mu*(grads))
                 # Project
 
-                lambda_dual = 100*lambda_dual/torch.sum(lambda_dual).item()
+                lambda_dual = lambda_dual/torch.sum(lambda_dual).item()
                 # print('norm lambda',torch.sum(lambda_dual))
                 #
                 # lambda_dual = 100*laplacian.projsplx(lambda_dual.cpu()).to(device)
